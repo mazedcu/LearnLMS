@@ -57,13 +57,21 @@ export const adminAPI = {
   updateLesson: (id, data) => api.patch(`/courses/lessons/${id}/`, data),
   deleteLesson: (id) => api.delete(`/courses/lessons/${id}/`),
   // Content blocks
-  createBlock: (lessonId, data) => api.post(`/content/lessons/${lessonId}/blocks/`, data),
-  updateBlock: (id, data) => api.patch(`/content/blocks/${id}/`, data),
+  createBlock: (lessonId, data) => api.post(`/content/lessons/${lessonId}/blocks/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  updateBlock: (id, data) => api.patch(`/content/blocks/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   deleteBlock: (id) => api.delete(`/content/blocks/${id}/`),
   // Drip rules
   setDripRule: (data) => api.post('/drip/rules/', data),
   updateDripRule: (lessonId, data) => api.patch(`/drip/rules/${lessonId}/`, data),
   manualUnlock: (lessonId, data) => api.post(`/drip/unlock/${lessonId}/`, data),
+  // AI Questions (admin)
+  getAIQuestions: (lessonId) => api.get(`/assessments/lessons/${lessonId}/questions/`),
+  createAIQuestion: (lessonId, data) => api.post(`/assessments/lessons/${lessonId}/questions/`, data),
+  deleteAIQuestion: (id) => api.delete(`/assessments/questions/${id}/`),
+  // Moodle Quizzes (admin)
+  getMoodleQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
+  createMoodleQuiz: (lessonId, data) => api.post(`/assessments/lessons/${lessonId}/quizzes/`, data),
+  deleteMoodleQuiz: (id) => api.delete(`/assessments/quizzes/${id}/`),
 };
 
 export const coursesAPI = {
@@ -88,6 +96,8 @@ export const aiAPI = {
   submit: (questionId, data) => api.post(`/assessments/questions/${questionId}/submit/`, data),
   getSubmissions: (lessonId) => api.get(`/assessments/lessons/${lessonId}/submissions/`),
   override: (id, data) => api.patch(`/assessments/submissions/${id}/override/`, data),
+  getMoodleQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
+  startQuiz: (quizId) => api.post(`/assessments/quizzes/${quizId}/start/`),
 };
 
 export const quizAPI = {

@@ -143,6 +143,67 @@ function AIQABlock({ lessonId }) {
   );
 }
 
+// ── Moodle Quiz Block ─────────────────────────────────────────────────────
+function MoodleQuizBlock({ lessonId }) {
+  const [starting, setStarting] = useState({});
+  const [started, setStarted] = useState({});
+
+  const { data: quizzes } = useQuery({
+    queryKey: ["moodle-quizzes-lesson", lessonId],
+    queryFn: () => aiAPI.getMoodleQuizzes(lessonId).then(r => Array.isArray(r.data) ? r.data : r.data?.results || []),
+    enabled: !!lessonId,
+  });
+
+  const qs = quizzes || [];
+  if (qs.length === 0) return null;
+
+  const handleStart = async (quiz) => {
+    setStarting(s => ({ ...s, [quiz.id]: true }));
+    try {
+      const r = await aiAPI.startQuiz(quiz.id);
+      setStarted(s => ({ ...s, [quiz.id]: r.data }));
+    } catch (e) {
+      alert(e?.response?.data?.detail || "Could not start quiz. Check Moodle connection.");
+    } finally {
+      setStarting(s => ({ ...s, [quiz.id]: false }));
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "2rem" }}>
+      <h3 style={{ marginBottom: "1.25rem" }}>Quizzes</h3>
+      {qs.map(quiz => (
+        <div key={quiz.id} className="glass" style={{ padding: "1.5rem", marginBottom: "1.25rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+            <div>
+              <p style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{quiz.title}</p>
+              <p className="text-muted" style={{ fontSize: "0.8rem" }}>
+                Max attempts: {quiz.max_attempts}
+                {quiz.time_limit_secs && ` · Time limit: ${Math.floor(quiz.time_limit_secs / 60)} min`}
+              </p>
+            </div>
+            {!started[quiz.id] && (
+              <button className="btn btn-primary btn-sm" onClick={() => handleStart(quiz)} disabled={starting[quiz.id]}>
+                {starting[quiz.id] ? "Starting..." : "Start Quiz"}
+              </button>
+            )}
+          </div>
+          {started[quiz.id] && (
+            <div className="alert alert-success" style={{ fontSize: "0.875rem" }}>
+              Quiz started (Attempt ID: {started[quiz.id].moodle_attempt_id || "N/A"}).
+              Please open Moodle to complete your quiz at: {" "}
+              <a href={`https://campus.rawdatun.org/mod/quiz/attempt.php?attempt=${started[quiz.id].moodle_attempt_id}`}
+                 target="_blank" rel="noreferrer" style={{ color: "var(--clr-accent)" }}>
+                Open in Moodle →
+              </a>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Content Block Renderer ─────────────────────────────────────────────────
 function BlockRenderer({ block }) {
   switch (block.block_type) {
@@ -239,6 +300,7 @@ export default function LearnPage() {
               </div>
 
               <AIQABlock lessonId={currentId} />
+              <MoodleQuizBlock lessonId={currentId} />
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--clr-border)" }}>
                 <button className="btn btn-accent" onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending}>

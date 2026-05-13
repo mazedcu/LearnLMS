@@ -138,10 +138,121 @@ function BlockEditor({ lessonId, onClose }) {
   );
 }
 
+// ── Assessments Editor ─────────────────────────────────────────────────────
+function AssessmentsEditor({ lessonId, onClose }) {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState("ai"); // "ai" | "quiz"
+  const [addingQ, setAddingQ] = useState(false);
+  const [addingMoodle, setAddingMoodle] = useState(false);
+  const [qForm, setQForm] = useState({ question_text: "", markscheme: "", max_marks: 10, order: 1 });
+  const [mForm, setMForm] = useState({ moodle_quiz_id: "", title: "", time_limit_secs: "", max_attempts: 1 });
+
+  const { data: aiQuestions } = useQuery({
+    queryKey: ["ai-questions-admin", lessonId],
+    queryFn: () => adminAPI.getAIQuestions(lessonId).then(r => Array.isArray(r.data) ? r.data : r.data?.results || []),
+  });
+  const { data: moodleQuizzes } = useQuery({
+    queryKey: ["moodle-quizzes-admin", lessonId],
+    queryFn: () => adminAPI.getMoodleQuizzes(lessonId).then(r => Array.isArray(r.data) ? r.data : r.data?.results || []),
+  });
+
+  const createQ = useMutation({
+    mutationFn: (data) => adminAPI.createAIQuestion(lessonId, data),
+    onSuccess: () => { qc.invalidateQueries(["ai-questions-admin", lessonId]); setAddingQ(false); setQForm({ question_text: "", markscheme: "", max_marks: 10, order: 1 }); },
+  });
+  const delQ = useMutation({
+    mutationFn: (id) => adminAPI.deleteAIQuestion(id),
+    onSuccess: () => qc.invalidateQueries(["ai-questions-admin", lessonId]),
+  });
+  const createMoodle = useMutation({
+    mutationFn: (data) => adminAPI.createMoodleQuiz(lessonId, { ...data, moodle_quiz_id: Number(data.moodle_quiz_id) }),
+    onSuccess: () => { qc.invalidateQueries(["moodle-quizzes-admin", lessonId]); setAddingMoodle(false); setMForm({ moodle_quiz_id: "", title: "", time_limit_secs: "", max_attempts: 1 }); },
+  });
+  const delMoodle = useMutation({
+    mutationFn: (id) => adminAPI.deleteMoodleQuiz(id),
+    onSuccess: () => qc.invalidateQueries(["moodle-quizzes-admin", lessonId]),
+  });
+
+  return (
+    <div style={{ padding: "1rem", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.2)", borderRadius: "var(--radius-md)", marginTop: "0.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <h5 style={{ margin: 0, color: "var(--clr-accent)" }}>Assessments</h5>
+          <button className="btn btn-sm" onClick={() => setTab("ai")} style={{ background: tab === "ai" ? "rgba(0,212,170,0.2)" : "transparent", color: tab === "ai" ? "var(--clr-accent)" : "var(--clr-muted)", border: "1px solid var(--clr-border)", fontSize: "0.7rem" }}>AI Questions</button>
+          <button className="btn btn-sm" onClick={() => setTab("quiz")} style={{ background: tab === "quiz" ? "rgba(0,212,170,0.2)" : "transparent", color: tab === "quiz" ? "var(--clr-accent)" : "var(--clr-muted)", border: "1px solid var(--clr-border)", fontSize: "0.7rem" }}>Moodle Quiz</button>
+        </div>
+        <button className="btn btn-outline btn-sm" onClick={onClose}><X size={13} /></button>
+      </div>
+
+      {tab === "ai" && (
+        <>
+          {(aiQuestions || []).map(q => (
+            <div key={q.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "0.625rem 0.75rem", background: "var(--clr-bg)", borderRadius: "var(--radius-sm)", marginBottom: "0.375rem", gap: "0.75rem" }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: "0.8rem", marginBottom: "0.25rem" }}>{q.question_text}</p>
+                <p className="text-muted" style={{ fontSize: "0.7rem" }}>Max marks: {q.max_marks} · Order: {q.order}</p>
+              </div>
+              <button className="btn btn-danger btn-sm" style={{ padding: "0.25rem 0.5rem", flexShrink: 0 }} onClick={() => delQ.mutate(q.id)}><Trash2 size={12} /></button>
+            </div>
+          ))}
+          {!addingQ && <button className="btn btn-sm btn-outline" style={{ width: "100%", color: "var(--clr-accent)", borderColor: "rgba(0,212,170,0.3)" }} onClick={() => setAddingQ(true)}><Plus size={13} /> Add AI Question</button>}
+          {addingQ && (
+            <div style={{ padding: "0.75rem", background: "rgba(0,212,170,0.06)", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <textarea className="form-control" rows={3} placeholder="Question text *" value={qForm.question_text} onChange={e => setQForm(f => ({ ...f, question_text: e.target.value }))} />
+              <textarea className="form-control" rows={3} placeholder="Mark scheme (provided to AI) *" value={qForm.markscheme} onChange={e => setQForm(f => ({ ...f, markscheme: e.target.value }))} style={{ fontFamily: "monospace", fontSize: "0.8rem" }} />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input className="form-control" type="number" placeholder="Max marks" value={qForm.max_marks} onChange={e => setQForm(f => ({ ...f, max_marks: Number(e.target.value) }))} />
+                <input className="form-control" type="number" placeholder="Order" value={qForm.order} onChange={e => setQForm(f => ({ ...f, order: Number(e.target.value) }))} />
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button className="btn btn-sm" style={{ background: "var(--clr-accent)", color: "#000" }} onClick={() => createQ.mutate(qForm)} disabled={createQ.isPending}><Save size={13} /> {createQ.isPending ? "Saving..." : "Save Question"}</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setAddingQ(false)}><X size={13} /></button>
+              </div>
+              {createQ.isError && <p className="form-error">{createQ.error?.response?.data?.detail || "Error saving question"}</p>}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "quiz" && (
+        <>
+          {(moodleQuizzes || []).map(q => (
+            <div key={q.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.625rem 0.75rem", background: "var(--clr-bg)", borderRadius: "var(--radius-sm)", marginBottom: "0.375rem" }}>
+              <div>
+                <p style={{ fontSize: "0.8rem", fontWeight: 600 }}>{q.title}</p>
+                <p className="text-muted" style={{ fontSize: "0.7rem" }}>Moodle Quiz ID: {q.moodle_quiz_id} · Max attempts: {q.max_attempts}</p>
+              </div>
+              <button className="btn btn-danger btn-sm" style={{ padding: "0.25rem 0.5rem" }} onClick={() => delMoodle.mutate(q.id)}><Trash2 size={12} /></button>
+            </div>
+          ))}
+          {!addingMoodle && <button className="btn btn-sm btn-outline" style={{ width: "100%", color: "var(--clr-accent)", borderColor: "rgba(0,212,170,0.3)" }} onClick={() => setAddingMoodle(true)}><Plus size={13} /> Link Moodle Quiz</button>}
+          {addingMoodle && (
+            <div style={{ padding: "0.75rem", background: "rgba(0,212,170,0.06)", borderRadius: "var(--radius-sm)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <p style={{ fontSize: "0.75rem", color: "var(--clr-muted)" }}>Find your Quiz ID in Moodle: Course → Quiz → URL contains <code>?id=N</code></p>
+              <input className="form-control" type="number" placeholder="Moodle Quiz ID (e.g. 42) *" value={mForm.moodle_quiz_id} onChange={e => setMForm(f => ({ ...f, moodle_quiz_id: e.target.value }))} />
+              <input className="form-control" placeholder="Quiz title *" value={mForm.title} onChange={e => setMForm(f => ({ ...f, title: e.target.value }))} />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input className="form-control" type="number" placeholder="Max attempts" value={mForm.max_attempts} onChange={e => setMForm(f => ({ ...f, max_attempts: Number(e.target.value) }))} />
+                <input className="form-control" type="number" placeholder="Time limit (seconds, optional)" value={mForm.time_limit_secs} onChange={e => setMForm(f => ({ ...f, time_limit_secs: e.target.value }))} />
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button className="btn btn-sm" style={{ background: "var(--clr-accent)", color: "#000" }} onClick={() => createMoodle.mutate(mForm)} disabled={createMoodle.isPending}><Save size={13} /> {createMoodle.isPending ? "Saving..." : "Save Quiz"}</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setAddingMoodle(false)}><X size={13} /></button>
+              </div>
+              {createMoodle.isError && <p className="form-error">{createMoodle.error?.response?.data?.detail || "Error saving quiz"}</p>}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Lesson Row ─────────────────────────────────────────────────────────────
 function LessonRow({ lesson, moduleId, onDelete }) {
   const qc = useQueryClient();
   const [showBlocks, setShowBlocks] = useState(false);
+  const [showAssessments, setShowAssessments] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const update = useMutation({
@@ -155,8 +266,11 @@ function LessonRow({ lesson, moduleId, onDelete }) {
         <ChevronRight size={12} color="var(--clr-muted)" />
         <span style={{ fontSize: "0.8rem", flex: 1 }}>{lesson.title}</span>
         <span style={{ fontSize: "0.7rem", color: lesson.is_published ? "var(--clr-success)" : "var(--clr-muted)" }}>{lesson.is_published ? "Published" : "Draft"}</span>
-        <button className="btn btn-sm btn-outline" style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem" }} onClick={() => setShowBlocks(s => !s)}>
+        <button className="btn btn-sm btn-outline" style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem" }} onClick={() => { setShowBlocks(s => !s); setShowAssessments(false); }}>
           {showBlocks ? "Hide Blocks" : "Content Blocks"}
+        </button>
+        <button className="btn btn-sm btn-outline" style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem", color: "var(--clr-accent)", borderColor: "rgba(0,212,170,0.4)" }} onClick={() => { setShowAssessments(s => !s); setShowBlocks(false); }}>
+          {showAssessments ? "Hide Assessments" : "Assessments"}
         </button>
         <button className="btn btn-sm btn-outline" style={{ padding: "0.2rem 0.5rem" }} onClick={() => setEditing(e => !e)}><Edit2 size={11} /></button>
         <button className="btn btn-danger btn-sm" style={{ padding: "0.2rem 0.5rem" }} onClick={onDelete}><Trash2 size={11} /></button>
@@ -177,6 +291,7 @@ function LessonRow({ lesson, moduleId, onDelete }) {
         />
       )}
       {showBlocks && <BlockEditor lessonId={lesson.id} onClose={() => setShowBlocks(false)} />}
+      {showAssessments && <AssessmentsEditor lessonId={lesson.id} onClose={() => setShowAssessments(false)} />}
     </div>
   );
 }

@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.common.permissions import IsInstructorOrAdmin
+from apps.courses.models import Lesson
 from .models import AIQuestion, AISubmission, MoodleQuiz, QuizAttempt
 from .serializers import (
     AIQuestionSerializer, AIQuestionAdminSerializer,
@@ -31,6 +32,38 @@ class AIQuestionListView(generics.ListCreateAPIView):
     def get_queryset(self):
         lesson_pk = self.kwargs.get('lesson_pk')
         return AIQuestion.objects.filter(lesson_id=lesson_pk, is_active=True).order_by('order')
+
+    def perform_create(self, serializer):
+        lesson = get_object_or_404(Lesson, pk=self.kwargs['lesson_pk'])
+        serializer.save(lesson=lesson)
+
+
+class AIQuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = AIQuestion.objects.all()
+    serializer_class = AIQuestionAdminSerializer
+    permission_classes = [IsInstructorOrAdmin]
+
+
+class MoodleQuizLessonView(generics.ListCreateAPIView):
+    serializer_class = MoodleQuizSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsInstructorOrAdmin()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        return MoodleQuiz.objects.filter(lesson_id=self.kwargs['lesson_pk'], is_active=True)
+
+    def perform_create(self, serializer):
+        lesson = get_object_or_404(Lesson, pk=self.kwargs['lesson_pk'])
+        serializer.save(lesson=lesson)
+
+
+class MoodleQuizDetailView(generics.RetrieveDestroyAPIView):
+    queryset = MoodleQuiz.objects.all()
+    serializer_class = MoodleQuizSerializer
+    permission_classes = [IsInstructorOrAdmin]
 
 
 class SubmitAnswerView(APIView):
