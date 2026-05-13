@@ -106,10 +106,40 @@ function BlockEditor({ lessonId, onClose }) {
                 </div>
               </>
             )}
-            {type === "h5p" && <input className="form-control" placeholder="H5P embed URL" value={form.h5p_embed_url} onChange={e => setForm(f => ({ ...f, h5p_embed_url: e.target.value }))} />}
+            {type === "h5p" && (
+              <input 
+                className="form-control" 
+                placeholder="Paste H5P URL or iframe code..." 
+                value={form.h5p_embed_url} 
+                onChange={e => {
+                  let val = e.target.value;
+                  if (val.includes("<iframe")) {
+                    const match = val.match(/src="([^"]+)"/);
+                    if (match) {
+                      val = match[1].replace(/&amp;/g, "&");
+                    }
+                  }
+                  setForm(f => ({ ...f, h5p_embed_url: val }));
+                }} 
+              />
+            )}
             {type === "video" && (
               <>
-                <input className="form-control" placeholder="YouTube/Vimeo URL" value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} />
+                <input 
+                  className="form-control" 
+                  placeholder="YouTube/Vimeo URL or iframe code..." 
+                  value={form.video_url} 
+                  onChange={e => {
+                    let val = e.target.value;
+                    if (val.includes("<iframe")) {
+                      const match = val.match(/src="([^"]+)"/);
+                      if (match) {
+                        val = match[1].replace(/&amp;/g, "&");
+                      }
+                    }
+                    setForm(f => ({ ...f, video_url: val }));
+                  }} 
+                />
                 <p style={{ fontSize: "0.7rem", color: "var(--clr-muted)", textAlign: "center" }}>- OR -</p>
                 <input type="file" accept="video/*" onChange={e => setFile(e.target.files[0])} style={{ fontSize: "0.7rem" }} />
               </>
