@@ -120,6 +120,7 @@ function BlockEditor({ lessonId, onClose }) {
               <button className="btn btn-primary btn-sm" onClick={() => save.mutate(form)} disabled={save.isPending}><Save size={13} /> {save.isPending ? "Saving..." : "Save Block"}</button>
               <button className="btn btn-outline btn-sm" onClick={() => setAdding(false)}><X size={13} /></button>
             </div>
+            {save.isError && <p className="form-error" style={{ fontSize: "0.7rem", marginTop: "0.5rem" }}>{save.error?.response?.data?.detail || "Error saving block. Please check the fields."}</p>}
           </div>
         </div>
       )}

@@ -57,8 +57,8 @@ export const adminAPI = {
   updateLesson: (id, data) => api.patch(`/courses/lessons/${id}/`, data),
   deleteLesson: (id) => api.delete(`/courses/lessons/${id}/`),
   // Content blocks
-  createBlock: (lessonId, data) => api.post(`/content/lessons/${lessonId}/blocks/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  updateBlock: (id, data) => api.patch(`/content/blocks/${id}/`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  createBlock: (lessonId, data) => api.post(`/content/lessons/${lessonId}/blocks/`, data),
+  updateBlock: (id, data) => api.patch(`/content/blocks/${id}/`, data),
   deleteBlock: (id) => api.delete(`/content/blocks/${id}/`),
   // Drip rules
   setDripRule: (data) => api.post('/drip/rules/', data),
