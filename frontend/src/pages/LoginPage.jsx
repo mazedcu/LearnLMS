@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { LogIn, BookOpen } from "lucide-react";
@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
         <div style={{ width: "100%", maxWidth: "400px" }}>
           <Link to="/" style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--clr-heading)", display: "block", marginBottom: "2rem" }}>
-            Learn<span style={{ color: "var(--clr-primary)" }}>LMS</span>
+            Learnwith<span style={{ color: "var(--clr-primary)" }}>Hasan</span>
           </Link>
           <h2 style={{ marginBottom: "0.5rem" }}>Sign In</h2>
           <p className="text-muted" style={{ marginBottom: "2rem" }}>Enter your credentials to continue</p>

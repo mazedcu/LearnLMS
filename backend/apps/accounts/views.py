@@ -66,6 +66,12 @@ class UserUpdateView(generics.UpdateAPIView):
         return Response(UserProfileSerializer(user).data)
 
 
+class UserDestroyView(generics.DestroyAPIView):
+    """Admin only — delete a user."""
+    queryset = CustomUser.objects.all()
+    permission_classes = [IsAdmin]
+
+
 class PlatformStatsView(APIView):
     """Admin/Manager — platform-wide stats for dashboard overview."""
     permission_classes = [IsAdmin]

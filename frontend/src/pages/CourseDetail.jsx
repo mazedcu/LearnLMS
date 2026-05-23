@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { coursesAPI, paymentsAPI } from "../api";
+import { coursesAPI } from "../api";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { BookOpen, Clock, Lock, ChevronDown, ChevronUp, CheckCircle, Eye } from "lucide-react";
@@ -56,11 +56,6 @@ export default function CourseDetail() {
     onSuccess: () => navigate(`/learn/${slug}`),
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: () => paymentsAPI.createOrder({ course: course.id, payment_method: "bkash" }).then(r => r.data),
-    onSuccess: (order) => navigate(`/checkout/${slug}`, { state: { orderId: order.id } }),
-  });
-
   if (isLoading) return <><Navbar /><div className="loading-screen"><div className="spinner" /></div></>;
   if (!course) return <><Navbar /><p style={{ textAlign: "center", padding: "4rem" }}>Course not found.</p></>;
 
@@ -97,8 +92,8 @@ export default function CourseDetail() {
                   {enrollMutation.isPending ? "Enrolling..." : "Enroll for Free"}
                 </button>
               ) : (
-                <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => user ? checkoutMutation.mutate() : navigate("/login")} disabled={checkoutMutation.isPending}>
-                  {checkoutMutation.isPending ? "Processing..." : user ? "Buy Course" : "Login to Purchase"}
+                <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => navigate(`/checkout/${slug}`)}>
+                  Buy Course
                 </button>
               )}
             </div>

@@ -1,9 +1,9 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, BookOpen, Users, CreditCard,
-  Settings, LogOut, ChevronRight, Menu, X
+  FileBarChart, LogOut, ChevronRight, Menu, X
 } from "lucide-react";
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { key: "courses",   label: "Courses",   icon: BookOpen },
   { key: "payments",  label: "Payments",  icon: CreditCard },
   { key: "users",     label: "Users",     icon: Users },
+  { key: "reports",   label: "Reports",   icon: FileBarChart },
 ];
 
 export default function AdminLayout({ section, setSection, children }) {
@@ -31,7 +32,7 @@ export default function AdminLayout({ section, setSection, children }) {
           <button onClick={() => setCollapsed(c => !c)} style={{ background: "none", border: "none", color: "var(--clr-muted)", cursor: "pointer", padding: "0.25rem" }}>
             {collapsed ? <Menu size={18} /> : <X size={18} />}
           </button>
-          {!collapsed && <span style={{ fontWeight: 800, color: "var(--clr-heading)", fontSize: "1rem" }}>Learn<span style={{ color: "var(--clr-primary)" }}>LMS</span></span>}
+          {!collapsed && <span style={{ fontWeight: 800, color: "var(--clr-heading)", fontSize: "1rem" }}>Learnwith<span style={{ color: "var(--clr-primary)" }}>Hasan</span></span>}
         </div>
 
         {/* Nav links */}
@@ -43,10 +44,11 @@ export default function AdminLayout({ section, setSection, children }) {
                 width: "100%", display: "flex", alignItems: "center", gap: "0.75rem",
                 padding: collapsed ? "0.75rem" : "0.75rem 1.25rem",
                 background: section === key ? "rgba(108,99,255,0.12)" : "transparent",
-                borderLeft: section === key ? "3px solid var(--clr-primary)" : "3px solid transparent",
+                border: "none", borderLeft: section === key ? "3px solid var(--clr-primary)" : "3px solid transparent",
                 color: section === key ? "var(--clr-primary)" : "var(--clr-muted)",
                 fontWeight: section === key ? 600 : 400, fontSize: "0.875rem",
                 justifyContent: collapsed ? "center" : "flex-start",
+                cursor: "pointer", transition: "background 0.15s",
               }}>
               <Icon size={16} />
               {!collapsed && <span>{label}</span>}

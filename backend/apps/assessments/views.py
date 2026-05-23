@@ -3,242 +3,180 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-
-from apps.common.permissions import IsInstructorOrAdmin
-from apps.courses.models import Lesson
-from .models import AIQuestion, AISubmission, MoodleQuiz, QuizAttempt
+import random
+from .models import Quiz, Question, QuizSubmission, QuestionResponse
 from .serializers import (
-    AIQuestionSerializer, AIQuestionAdminSerializer,
-    AISubmissionSerializer, SubmitAnswerSerializer, OverrideScoreSerializer,
-    MoodleQuizSerializer, QuizAttemptSerializer,
+    QuizSerializer, QuestionSerializer,
+    QuizSubmissionSerializer, QuestionResponseSerializer,
+    mark_question, generate_calc_variables, interpolate_prompt
 )
-from .ai_service import get_ai_marking_service
-from .moodle_client import get_moodle_client
 
-
-# ─── AI Questions ─────────────────────────────────────────────────────────────
-
-class AIQuestionListView(generics.ListCreateAPIView):
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsInstructorOrAdmin()]
-        return [permissions.IsAuthenticated()]
-
-    def get_serializer_class(self):
-        if self.request.method == 'POST' or self.request.user.role in ('instructor', 'admin'):
-            return AIQuestionAdminSerializer
-        return AIQuestionSerializer
+class QuizListView(generics.ListAPIView):
+    serializer_class = QuizSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         lesson_pk = self.kwargs.get('lesson_pk')
-        return AIQuestion.objects.filter(lesson_id=lesson_pk, is_active=True).order_by('order')
+        return Quiz.objects.filter(lesson_id=lesson_pk, is_active=True)
 
-    def perform_create(self, serializer):
-        lesson = get_object_or_404(Lesson, pk=self.kwargs['lesson_pk'])
-        serializer.save(lesson=lesson)
+class StartQuizView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
+    def post(self, request, quiz_pk):
+        quiz = get_object_or_404(Quiz, pk=quiz_pk, is_active=True)
 
-class AIQuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = AIQuestion.objects.all()
-    serializer_class = AIQuestionAdminSerializer
-    permission_classes = [IsInstructorOrAdmin]
+        # Check attempts
+        if quiz.max_attempts > 0:
+            attempt_count = QuizSubmission.objects.filter(
+                student=request.user, quiz=quiz
+            ).count()
+            if attempt_count >= quiz.max_attempts:
+                return Response(
+                    {'detail': f'Maximum {quiz.max_attempts} attempt(s) allowed.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
+        # Pre-generate per-question state (calc-MCQ variables, interpolated prompts)
+        rendered = {}
+        seed = random.randint(1, 1_000_000)  # per-attempt seed
+        for question in quiz.questions.filter(is_active=True):
+            q_id = str(question.id)
+            data = {}
+            if question.question_type == Question.Type.CALCULATED_MCQ:
+                variables = generate_calc_variables(question.content, seed)
+                data['variables'] = variables
+                data['interpolated_prompt'] = interpolate_prompt(question.prompt, variables)
+            rendered[q_id] = data
 
-class MoodleQuizLessonView(generics.ListCreateAPIView):
-    serializer_class = MoodleQuizSerializer
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsInstructorOrAdmin()]
-        return [permissions.IsAuthenticated()]
-
-    def get_queryset(self):
-        return MoodleQuiz.objects.filter(lesson_id=self.kwargs['lesson_pk'], is_active=True)
-
-    def perform_create(self, serializer):
-        lesson = get_object_or_404(Lesson, pk=self.kwargs['lesson_pk'])
-        serializer.save(lesson=lesson)
-
-
-class MoodleQuizDetailView(generics.RetrieveDestroyAPIView):
-    queryset = MoodleQuiz.objects.all()
-    serializer_class = MoodleQuizSerializer
-    permission_classes = [IsInstructorOrAdmin]
-
+        submission = QuizSubmission.objects.create(
+            student=request.user,
+            quiz=quiz,
+            status=QuizSubmission.Status.IN_PROGRESS,
+            rendered_questions=rendered,
+        )
+        return Response(QuizSubmissionSerializer(submission).data, status=status.HTTP_201_CREATED)
 
 class SubmitAnswerView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, question_pk):
-        question = get_object_or_404(AIQuestion, pk=question_pk, is_active=True)
-        serializer = SubmitAnswerSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        answer_text = serializer.validated_data['answer_text']
+    def post(self, request, submission_pk, question_pk):
+        submission = get_object_or_404(QuizSubmission, pk=submission_pk, student=request.user,
+                                        status=QuizSubmission.Status.IN_PROGRESS)
+        question = get_object_or_404(Question, pk=question_pk, quiz=submission.quiz)
 
-        # Prevent re-submission if already marked (allow instructor override separately)
-        existing = AISubmission.objects.filter(student=request.user, question=question).first()
-        if existing and existing.is_reviewed:
-            return Response(
-                {'detail': 'Already reviewed by instructor.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        answer_data = request.data.get('answer_data', {})
 
-        # Call AI marking service (mock or real)
-        service = get_ai_marking_service()
-        result  = service.mark(question, answer_text)
+        # For calc-MCQ, use the pre-generated variables stored on the submission
+        rendered = submission.rendered_questions.get(str(question.id), {})
+        rendered_variables = rendered.get('variables') if isinstance(rendered, dict) else None
 
-        submission, _ = AISubmission.objects.update_or_create(
-            student=request.user,
+        marks, feedback = mark_question(question, answer_data, rendered_variables)
+
+        response, _ = QuestionResponse.objects.update_or_create(
+            submission=submission,
             question=question,
             defaults={
-                'answer_text': answer_text,
-                'ai_score': result.get('score', 0),
-                'ai_feedback': result.get('feedback', ''),
-                'ai_breakdown': result.get('breakdown', []),
-                'ai_raw_response': result,
-                'ai_evaluated_at': timezone.now(),
-            },
+                'answer_data': answer_data,
+                'marks_obtained': marks,
+                'feedback': feedback
+            }
         )
-        return Response(AISubmissionSerializer(submission).data, status=status.HTTP_200_OK)
 
+        return Response(QuestionResponseSerializer(response).data)
 
-class OverrideSubmissionView(APIView):
-    permission_classes = [IsInstructorOrAdmin]
-
-    def patch(self, request, pk):
-        submission = get_object_or_404(AISubmission, pk=pk)
-        serializer = OverrideScoreSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        if serializer.validated_data['teacher_score'] > submission.question.max_marks:
-            return Response(
-                {'detail': f'Score cannot exceed {submission.question.max_marks}.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        submission.teacher_score    = serializer.validated_data['teacher_score']
-        submission.teacher_feedback = serializer.validated_data['teacher_feedback']
-        submission.is_reviewed      = True
-        submission.reviewed_by      = request.user
-        submission.reviewed_at      = timezone.now()
-        submission.save()
-        return Response(AISubmissionSerializer(submission).data)
-
-
-class MySubmissionsView(generics.ListAPIView):
-    serializer_class = AISubmissionSerializer
+class FinishQuizView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, submission_pk):
+        submission = get_object_or_404(QuizSubmission, pk=submission_pk, student=request.user,
+                                        status=QuizSubmission.Status.IN_PROGRESS)
+        
+        # Finalize submission
+        submission.status = QuizSubmission.Status.SUBMITTED
+        submission.finished_at = timezone.now()
+        
+        # Calculate total score
+        total_marks = 0
+        total_obtained = 0
+        
+        for question in submission.quiz.questions.all():
+            total_marks += question.max_marks
+            resp = QuestionResponse.objects.filter(submission=submission, question=question).first()
+            if resp:
+                total_obtained += resp.marks_obtained
+        
+        submission.total_marks = total_marks
+        submission.score = total_obtained
+        submission.save()
+        
+        return Response(QuizSubmissionSerializer(submission).data)
+
+class SubmissionDetailView(generics.RetrieveAPIView):
+    serializer_class = QuizSubmissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = QuizSubmission.objects.all()
 
     def get_queryset(self):
-        return AISubmission.objects.filter(
-            student=self.request.user,
-            question__lesson_id=self.kwargs['lesson_pk'],
-        )
+        return super().get_queryset().filter(student=self.request.user)
 
 
-# ─── Moodle Quiz Proxy ────────────────────────────────────────────────────────
-
-class MoodleQuizInfoView(APIView):
+class RenderedQuestionsView(APIView):
+    """Return the pre-generated per-question state (interpolated prompts,
+    variables, etc.) for an in-progress submission."""
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, pk):
-        quiz = get_object_or_404(MoodleQuiz, pk=pk, is_active=True)
-        client = get_moodle_client()
-        try:
-            moodle_data = client.get_quiz_info(quiz.moodle_quiz_id)
-        except Exception as e:
-            moodle_data = {}
-        data = MoodleQuizSerializer(quiz).data
-        data['moodle_info'] = moodle_data
-        return Response(data)
-
-
-class StartAttemptView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, pk):
-        quiz = get_object_or_404(MoodleQuiz, pk=pk, is_active=True)
-
-        # Check attempt limit
-        attempt_count = QuizAttempt.objects.filter(
-            student=request.user, moodle_quiz=quiz
-        ).count()
-        if attempt_count >= quiz.max_attempts:
-            return Response(
-                {'detail': f'Maximum {quiz.max_attempts} attempt(s) allowed.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        client = get_moodle_client()
-        try:
-            moodle_resp = client.start_attempt(quiz.moodle_quiz_id)
-            moodle_attempt_id = moodle_resp.get('attempt', {}).get('id')
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-
-        attempt = QuizAttempt.objects.create(
+    def get(self, request, submission_pk):
+        submission = get_object_or_404(
+            QuizSubmission,
+            pk=submission_pk,
             student=request.user,
-            moodle_quiz=quiz,
-            moodle_attempt_id=moodle_attempt_id,
-            status=QuizAttempt.Status.IN_PROGRESS,
+            status=QuizSubmission.Status.IN_PROGRESS
         )
-        return Response(QuizAttemptSerializer(attempt).data, status=status.HTTP_201_CREATED)
+        return Response({
+            'rendered_questions': submission.rendered_questions,
+        })
 
 
-class GetAttemptDataView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+# ── Admin CRUD Views ────────────────────────────────────────────────────────
 
-    def get(self, request, pk, attempt_pk):
-        attempt = get_object_or_404(QuizAttempt, pk=attempt_pk, student=request.user)
-        page = int(request.query_params.get('page', 0))
-        client = get_moodle_client()
-        try:
-            data = client.get_attempt_data(attempt.moodle_attempt_id, page)
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-        return Response(data)
+class IsAdminOrInstructor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_staff or getattr(request.user, 'role', '') in ('admin', 'instructor')
+        )
 
+class QuizCreateView(generics.ListCreateAPIView):
+    """List or create quizzes for a lesson (admin/instructor)."""
+    serializer_class = QuizSerializer
+    permission_classes = [IsAdminOrInstructor]
 
-class SubmitAttemptView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_queryset(self):
+        return Quiz.objects.filter(lesson_id=self.kwargs['lesson_pk'])
 
-    def post(self, request, pk, attempt_pk):
-        attempt = get_object_or_404(QuizAttempt, pk=attempt_pk, student=request.user,
-                                    status=QuizAttempt.Status.IN_PROGRESS)
-        answers = request.data.get('answers', [])
-        finish  = request.data.get('finish', True)
+    def perform_create(self, serializer):
+        serializer.save(lesson_id=self.kwargs['lesson_pk'])
 
-        client = get_moodle_client()
-        try:
-            client.process_attempt(attempt.moodle_attempt_id, answers, finish=finish)
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Update or delete a quiz (admin/instructor)."""
+    serializer_class = QuizSerializer
+    permission_classes = [IsAdminOrInstructor]
+    queryset = Quiz.objects.all()
+    lookup_url_kwarg = 'quiz_pk'
 
-        if finish:
-            attempt.status      = QuizAttempt.Status.FINISHED
-            attempt.finished_at = timezone.now()
-            # Fetch result from Moodle
-            try:
-                review = client.get_attempt_review(attempt.moodle_attempt_id)
-                attempt_data = review.get('attempt', {})
-                attempt.score     = attempt_data.get('sumgrades', 0)
-                attempt.max_score = attempt_data.get('maxgrade', 0)
-            except Exception:
-                pass
-            attempt.save()
+class QuestionListCreateView(generics.ListCreateAPIView):
+    """List or create questions for a quiz (admin/instructor)."""
+    serializer_class = QuestionSerializer
+    permission_classes = [IsAdminOrInstructor]
 
-        return Response(QuizAttemptSerializer(attempt).data)
+    def get_queryset(self):
+        return Question.objects.filter(quiz_id=self.kwargs['quiz_pk'])
 
+    def perform_create(self, serializer):
+        serializer.save(quiz_id=self.kwargs['quiz_pk'])
 
-class AttemptReviewView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, pk, attempt_pk):
-        attempt = get_object_or_404(QuizAttempt, pk=attempt_pk, student=request.user)
-        client = get_moodle_client()
-        try:
-            data = client.get_attempt_review(attempt.moodle_attempt_id)
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
-        data['local_attempt'] = QuizAttemptSerializer(attempt).data
-        return Response(data)
+class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Update or delete a question (admin/instructor)."""
+    serializer_class = QuestionSerializer
+    permission_classes = [IsAdminOrInstructor]
+    queryset = Question.objects.all()
+    lookup_url_kwarg = 'question_pk'

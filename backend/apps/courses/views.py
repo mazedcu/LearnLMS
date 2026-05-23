@@ -48,12 +48,12 @@ class CourseListCreateView(generics.ListCreateAPIView):
                         status=status.HTTP_201_CREATED)
 
 
-class CourseDetailView(generics.RetrieveUpdateAPIView):
+class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Course.objects.prefetch_related('modules__lessons__drip_rule').select_related('instructor')
     lookup_field = 'slug'
 
     def get_permissions(self):
-        if self.request.method in ('PUT', 'PATCH'):
+        if self.request.method in ('PUT', 'PATCH', 'DELETE'):
             return [IsInstructorOrAdmin()]
         return [permissions.AllowAny()]
 

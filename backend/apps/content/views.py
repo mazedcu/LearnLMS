@@ -3,6 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.http import HttpResponse, FileResponse
+from django.conf import settings
+import os
 
 from apps.courses.models import Lesson, Enrollment
 from apps.progress.models import LessonProgress, CourseProgress
@@ -121,3 +124,96 @@ class LessonDripStatusView(APIView):
             'criteria_type': rule.criteria_type if rule else None,
             'is_preview': lesson.is_preview,
         })
+
+
+class H5PServeView(APIView):
+    """Serve extracted H5P content with h5p-standalone player."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, block_id):
+        import zipfile
+        import json as _json
+        block = get_object_or_404(ContentBlock, pk=block_id)
+
+        if block.block_type != 'h5p':
+            return HttpResponse('Not an H5P block', status=404)
+
+        # Extract on-the-fly if needed
+        extract_dir = os.path.join(settings.MEDIA_ROOT, 'h5p_extracted', str(block.id))
+        if block.file and not block.h5p_extracted_path:
+            try:
+                os.makedirs(extract_dir, exist_ok=True)
+                with zipfile.ZipFile(block.file.path, 'r') as zf:
+                    zf.extractall(extract_dir)
+                block.h5p_extracted_path = f'h5p_extracted/{block.id}'
+                block.save(update_fields=['h5p_extracted_path'])
+            except Exception:
+                pass
+
+        h5p_path = block.h5p_extracted_path
+        if not h5p_path and block.file:
+            h5p_path = f'h5p_extracted/{block.id}'
+
+        if not h5p_path or not os.path.exists(extract_dir):
+            return HttpResponse('H5P content not available', status=404)
+
+        # Use relative URL so requests go through the frontend proxy (avoids CORS issues)
+        h5p_base_url = f'/media/{h5p_path}'
+
+        # Serve an HTML page with h5p-standalone player
+        title = block.title or 'H5P Content'
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/h5p-standalone@3.8.0/dist/styles/h5p.css">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+        #h5p-container {{ width: 100%; min-height: 100vh; }}
+        .h5p-loading {{
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; color: #555; font-size: 1.1rem;
+        }}
+        .h5p-error {{
+            display: flex; align-items: center; justify-content: center;
+            min-height: 200px; color: #c0392b; font-size: 1rem;
+            padding: 2rem; text-align: center;
+        }}
+    </style>
+</head>
+<body>
+    <div id="h5p-container">
+        <div class="h5p-loading">Loading H5P content&hellip;</div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/h5p-standalone@3.8.0/dist/main.bundle.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            var el = document.getElementById('h5p-container');
+            var options = {{
+                h5pJsonPath: '{h5p_base_url}',
+                frameJs: 'https://cdn.jsdelivr.net/npm/h5p-standalone@3.8.0/dist/frame.bundle.js',
+                frameCss: 'https://cdn.jsdelivr.net/npm/h5p-standalone@3.8.0/dist/styles/h5p.css',
+            }};
+
+            try {{
+                new H5PStandalone.H5P(el, options)
+                    .then(function() {{
+                        console.log('H5P content rendered successfully');
+                    }})
+                    .catch(function(err) {{
+                        console.error('H5P render promise error:', err);
+                        el.innerHTML = '<div class="h5p-error">Failed to load H5P content: ' + err.message + '</div>';
+                    }});
+            }} catch (err) {{
+                console.error('H5P init error:', err);
+                el.innerHTML = '<div class="h5p-error">Failed to initialize H5P player: ' + err.message + '</div>';
+            }}
+        }});
+    </script>
+</body>
+</html>'''
+
+        return HttpResponse(html, content_type='text/html')

@@ -14,7 +14,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-MOODLE_BASE = "https://campus.rawdatun.org"
+MOODLE_BASE = getattr(settings, 'MOODLE_BASE_URL', 'https://campus.rawdatun.org')
 REST_ENDPOINT = f"{MOODLE_BASE}/webservice/rest/server.php"
 
 
@@ -38,8 +38,11 @@ class MoodleClient:
             "moodlewsrestformat": "json",
             **params,
         }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        }
         try:
-            resp = requests.post(REST_ENDPOINT, data=payload, timeout=15)
+            resp = requests.post(REST_ENDPOINT, data=payload, timeout=15, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict) and "exception" in data:
@@ -150,7 +153,8 @@ def get_moodle_client() -> MoodleClient:
     """Factory — returns mock if token not configured."""
     from django.conf import settings
     token = getattr(settings, 'MOODLE_SERVICE_TOKEN', '')
-    if not token:
-        logger.info("Using MockMoodleClient (no service token configured)")
+    if not token or token == "":
+        logger.warning("Using MockMoodleClient because MOODLE_SERVICE_TOKEN is missing or empty.")
         return MockMoodleClient()
+    
     return MoodleClient()

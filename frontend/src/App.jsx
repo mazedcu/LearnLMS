@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import { lazy, Suspense } from 'react';
 
 const HomePage            = lazy(() => import('./pages/HomePage'));
@@ -27,29 +28,31 @@ function PageFallback() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/courses/:slug" element={<CourseDetail />} />
               <Route path="/certificates/:uuid" element={<CertVerify />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
-              <Route path="/checkout/:slug" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-              <Route path="/learn/:slug" element={<ProtectedRoute><LearnPage /></ProtectedRoute>} />
-              <Route path="/learn/:slug/:lessonId" element={<ProtectedRoute><LearnPage /></ProtectedRoute>} />
+              <Route path="/checkout/:slug" element={<CheckoutPage />} />
+              <Route path="/learn/:slug" element={<LearnPage />} />
+              <Route path="/learn/:slug/:lessonId" element={<LearnPage />} />
               <Route path="/dashboard/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/instructor" element={<ProtectedRoute roles={['instructor','admin']}><InstructorDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/manager" element={<ProtectedRoute roles={['manager','admin']}><ManagerDashboard /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

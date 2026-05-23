@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authAPI } from "../../api";
-import { Save, Search } from "lucide-react";
+import { Save, Search, Trash2 } from "lucide-react";
 
 const ROLES = ["student", "instructor", "manager", "admin"];
 const ROLE_COLORS = { student: "var(--clr-accent)", instructor: "var(--clr-primary)", manager: "var(--clr-warning)", admin: "#f97316" };
@@ -25,6 +25,14 @@ export default function UsersSection() {
   const toggleActive = useMutation({
     mutationFn: ({ id, is_active }) => authAPI.updateUser(id, { is_active }),
     onSuccess: () => qc.invalidateQueries(["all-users"]),
+  });
+
+  const delUser = useMutation({
+    mutationFn: (id) => authAPI.deleteUser(id),
+    onSuccess: () => {
+      qc.invalidateQueries(["all-users"]);
+      qc.invalidateQueries(["platform-stats"]);
+    },
   });
 
   const users = (data || []).filter(u =>
@@ -81,7 +89,26 @@ export default function UsersSection() {
                 </td>
                 <td style={{ padding: "0.75rem", color: "var(--clr-muted)", fontSize: "0.75rem" }}>{u.date_joined ? new Date(u.date_joined).toLocaleDateString() : "-"}</td>
                 <td style={{ padding: "0.75rem" }}>
-                  {editId === u.id && <button className="btn btn-outline btn-sm" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setEditId(null)}>Cancel</button>}
+                  <div style={{ display: "flex", gap: "0.375rem" }}>
+                    {editId === u.id && (
+                      <button className="btn btn-outline btn-sm" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} onClick={() => setEditId(null)}>
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-danger btn-sm"
+                      style={{ padding: "0.2rem 0.5rem" }}
+                      onClick={() => {
+                        if (confirm(`Delete ${u.email}? This cannot be undone.`)) {
+                          delUser.mutate(u.id);
+                        }
+                      }}
+                      disabled={delUser.isPending}
+                      title="Delete user"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

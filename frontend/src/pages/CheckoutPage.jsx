@@ -1,9 +1,10 @@
 ﻿import { useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { coursesAPI, paymentsAPI } from "../api";
+import { coursesAPI, paymentsAPI, authAPI } from "../api";
+import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
-import { CheckCircle, CreditCard } from "lucide-react";
+import { CheckCircle, CreditCard, UserPlus } from "lucide-react";
 
 const BKASH_NUMBER  = "01XXXXXXXXX";
 const NAGAD_NUMBER  = "01XXXXXXXXX";
@@ -13,6 +14,8 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const passedOrderId = location.state?.orderId;
+  const { user } = useAuth();
+  const isGuest = !user;
 
   const { data: course } = useQuery({
     queryKey: ["course", slug],
@@ -25,6 +28,18 @@ export default function CheckoutPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
+  // Guest registration form state
+  const [reg, setReg] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    username: "",
+    password: "",
+    password2: "",
+  });
+
+  const updateReg = (field, value) => setReg(r => ({ ...r, [field]: value }));
+
   const createOrder = useMutation({
     mutationFn: () => paymentsAPI.createOrder({ course: course.id, payment_method: method }).then(r => r.data),
     onSuccess: (d) => setOrderId(d.id),
@@ -35,6 +50,28 @@ export default function CheckoutPage() {
     mutationFn: () => paymentsAPI.submitReference(orderId, { payment_reference: ref, payment_method: method }),
     onSuccess: () => setDone(true),
     onError: (e) => setError(e.response?.data?.detail || "Failed to submit reference."),
+  });
+
+  const guestPurchase = useMutation({
+    mutationFn: async () => {
+      if (reg.password !== reg.password2) throw new Error("Passwords do not match.");
+      // 1. Register and get tokens
+      const { data: tokens } = await authAPI.register(reg);
+      localStorage.setItem("access_token", tokens.access);
+      localStorage.setItem("refresh_token", tokens.refresh);
+      // 2. Create order
+      const { data: order } = await paymentsAPI.createOrder({ course: course.id, payment_method: method });
+      setOrderId(order.id);
+      // 3. Submit reference
+      await paymentsAPI.submitReference(order.id, { payment_reference: ref, payment_method: method });
+    },
+    onSuccess: () => setDone(true),
+    onError: (e) => {
+      const msg = e.response?.data
+        ? Object.values(e.response.data).flat().join(" ")
+        : e.message || "Registration or purchase failed.";
+      setError(msg);
+    },
   });
 
   if (!course) return <><Navbar /><div className="loading-screen"><div className="spinner" /></div></>;
@@ -91,12 +128,57 @@ export default function CheckoutPage() {
             </div>
 
             <div className="glass" style={{ padding: "1.75rem" }}>
-              <h4 style={{ marginBottom: "1rem" }}>3. Submit Transaction Reference</h4>
+              <h4 style={{ marginBottom: "1rem" }}>
+                3. {isGuest ? "Create Account & Submit Reference" : "Submit Transaction Reference"}
+              </h4>
+
+              {isGuest && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem", paddingBottom: "1.25rem", borderBottom: "1px solid var(--clr-border)" }}>
+                  <div className="grid-2" style={{ gap: "0.75rem" }}>
+                    <div className="form-group">
+                      <label className="form-label">First Name</label>
+                      <input className="form-control" value={reg.first_name} onChange={e => updateReg("first_name", e.target.value)} placeholder="John" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Last Name</label>
+                      <input className="form-control" value={reg.last_name} onChange={e => updateReg("last_name", e.target.value)} placeholder="Doe" />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email</label>
+                    <input type="email" className="form-control" value={reg.email} onChange={e => updateReg("email", e.target.value)} placeholder="you@example.com" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input className="form-control" value={reg.username} onChange={e => updateReg("username", e.target.value)} placeholder="johndoe" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Password</label>
+                    <input type="password" className="form-control" value={reg.password} onChange={e => updateReg("password", e.target.value)} placeholder="Min 8 characters" required />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Confirm Password</label>
+                    <input type="password" className="form-control" value={reg.password2} onChange={e => updateReg("password2", e.target.value)} placeholder="Repeat password" required />
+                  </div>
+                </div>
+              )}
+
               <div className="form-group" style={{ marginBottom: "1rem" }}>
                 <label className="form-label">Transaction ID / Reference</label>
                 <input className="form-control" value={ref} onChange={e => setRef(e.target.value)} placeholder="e.g. 8N8ABXXXXXXXXXXX" />
               </div>
-              {!orderId ? (
+
+              {isGuest ? (
+                <button
+                  className="btn btn-primary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => guestPurchase.mutate()}
+                  disabled={guestPurchase.isPending || !ref}
+                >
+                  <UserPlus size={16} />
+                  {guestPurchase.isPending ? "Processing..." : "Register & Purchase"}
+                </button>
+              ) : !orderId ? (
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => createOrder.mutate()} disabled={createOrder.isPending}>
                   {createOrder.isPending ? "Creating order..." : "Proceed"}
                 </button>
@@ -104,6 +186,12 @@ export default function CheckoutPage() {
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => submitRef.mutate()} disabled={!ref || submitRef.isPending}>
                   <CreditCard size={16} /> {submitRef.isPending ? "Submitting..." : "Submit for Verification"}
                 </button>
+              )}
+
+              {isGuest && (
+                <p className="text-muted" style={{ marginTop: "1rem", textAlign: "center", fontSize: "0.875rem" }}>
+                  Already have an account? <Link to="/login" style={{ color: "var(--clr-primary)" }}>Sign in</Link>
+                </p>
               )}
             </div>
           </>

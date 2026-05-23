@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: '/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -44,10 +43,13 @@ export const authAPI = {
   updateMe: (data) => api.patch('/auth/me/', data),
   users: () => api.get('/auth/users/'),
   updateUser: (id, data) => api.patch(`/auth/users/${id}/`, data),
+  deleteUser: (id) => api.delete(`/auth/users/${id}/delete/`),
   platformStats: () => api.get('/auth/stats/'),
 };
 
 export const adminAPI = {
+  // Courses
+  deleteCourse: (slug) => api.delete(`/courses/${slug}/`),
   // Modules
   createModule: (courseSlug, data) => api.post(`/courses/${courseSlug}/modules/`, data),
   updateModule: (id, data) => api.patch(`/courses/modules/${id}/`, data),
@@ -64,14 +66,16 @@ export const adminAPI = {
   setDripRule: (data) => api.post('/drip/rules/', data),
   updateDripRule: (lessonId, data) => api.patch(`/drip/rules/${lessonId}/`, data),
   manualUnlock: (lessonId, data) => api.post(`/drip/unlock/${lessonId}/`, data),
-  // AI Questions (admin)
-  getAIQuestions: (lessonId) => api.get(`/assessments/lessons/${lessonId}/questions/`),
-  createAIQuestion: (lessonId, data) => api.post(`/assessments/lessons/${lessonId}/questions/`, data),
-  deleteAIQuestion: (id) => api.delete(`/assessments/questions/${id}/`),
-  // Moodle Quizzes (admin)
-  getMoodleQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
-  createMoodleQuiz: (lessonId, data) => api.post(`/assessments/lessons/${lessonId}/quizzes/`, data),
-  deleteMoodleQuiz: (id) => api.delete(`/assessments/quizzes/${id}/`),
+  // Quiz/Question Management (admin)
+  getQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
+  createQuiz: (lessonId, data) => api.post(`/assessments/lessons/${lessonId}/quizzes/`, data),
+  updateQuiz: (id, data) => api.patch(`/assessments/quizzes/${id}/`, data),
+  deleteQuiz: (id) => api.delete(`/assessments/quizzes/${id}/`),
+  
+  getQuestions: (quizId) => api.get(`/assessments/quizzes/${quizId}/questions/`),
+  createQuestion: (quizId, data) => api.post(`/assessments/quizzes/${quizId}/questions/`, data),
+  updateQuestion: (id, data) => api.patch(`/assessments/questions/${id}/`, data),
+  deleteQuestion: (id) => api.delete(`/assessments/questions/${id}/`),
 };
 
 export const coursesAPI = {
@@ -91,21 +95,20 @@ export const lessonsAPI = {
   dripStatus: (id) => api.get(`/content/lessons/${id}/drip-status/`),
 };
 
-export const aiAPI = {
-  getQuestions: (lessonId) => api.get(`/assessments/lessons/${lessonId}/questions/`),
-  submit: (questionId, data) => api.post(`/assessments/questions/${questionId}/submit/`, data),
-  getSubmissions: (lessonId) => api.get(`/assessments/lessons/${lessonId}/submissions/`),
-  override: (id, data) => api.patch(`/assessments/submissions/${id}/override/`, data),
-  getMoodleQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
+export const assessmentsAPI = {
+  // Quizzes for a lesson
+  listQuizzes: (lessonId) => api.get(`/assessments/lessons/${lessonId}/quizzes/`),
+  
+  // Quiz interaction
   startQuiz: (quizId) => api.post(`/assessments/quizzes/${quizId}/start/`),
-};
+  getRenderedQuestions: (submissionId) =>
+    api.get(`/assessments/submissions/${submissionId}/questions/`),
+  submitAnswer: (submissionId, questionId, data) =>
+    api.post(`/assessments/submissions/${submissionId}/submit/${questionId}/`, data),
+  finishQuiz: (submissionId) => api.post(`/assessments/submissions/${submissionId}/finish/`),
 
-export const quizAPI = {
-  info: (id) => api.get(`/assessments/quizzes/${id}/`),
-  start: (id) => api.post(`/assessments/quizzes/${id}/start/`),
-  getAttempt: (id, attemptId) => api.get(`/assessments/quizzes/${id}/attempts/${attemptId}/`),
-  submit: (id, attemptId, data) => api.post(`/assessments/quizzes/${id}/attempts/${attemptId}/submit/`, data),
-  review: (id, attemptId) => api.get(`/assessments/quizzes/${id}/attempts/${attemptId}/review/`),
+  // Results
+  getSubmission: (id) => api.get(`/assessments/submissions/${id}/`),
 };
 
 export const paymentsAPI = {
@@ -121,6 +124,12 @@ export const progressAPI = {
   courseProgress: (enrollmentId) => api.get(`/progress/enrollment/${enrollmentId}/`),
   studentAnalytics: (userId) => api.get(`/progress/student/${userId}/`),
   courseAnalytics: (slug) => api.get(`/progress/course/${slug}/`),
+};
+
+export const reportsAPI = {
+  userActivity: () => api.get('/progress/admin/reports/users/'),
+  quizResults: () => api.get('/progress/admin/reports/quizzes/'),
+  recentActivity: () => api.get('/progress/admin/reports/recent/'),
 };
 
 export const certificatesAPI = {

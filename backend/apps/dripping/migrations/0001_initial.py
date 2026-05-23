@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('lesson', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='drip_rule', to='courses.lesson')),
                 ('required_lesson', models.ForeignKey(blank=True, help_text='Lesson that must be completed first', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='unlocks_lessons', to='courses.lesson')),
-                ('required_quiz', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='gates_lessons', to='assessments.moodlequiz')),
+                ('required_quiz', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='gates_lessons', to='assessments.quiz')),
             ],
         ),
         migrations.CreateModel(

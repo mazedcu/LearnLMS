@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { UserPlus } from "lucide-react";
@@ -29,7 +29,7 @@ export default function RegisterPage() {
     <div className="page" style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
       <div className="glass" style={{ width: "100%", maxWidth: "480px", padding: "2.5rem" }}>
         <Link to="/" style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--clr-heading)", display: "block", marginBottom: "2rem" }}>
-          Learn<span style={{ color: "var(--clr-primary)" }}>LMS</span>
+          Learnwith<span style={{ color: "var(--clr-primary)" }}>Hasan</span>
         </Link>
         <h2 style={{ marginBottom: "0.5rem" }}>Create Account</h2>
         <p className="text-muted" style={{ marginBottom: "2rem" }}>Join thousands of learners today</p>

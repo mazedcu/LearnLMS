@@ -38,7 +38,7 @@ class DrippingRule(models.Model):
         null=True, blank=True, help_text='Minimum quiz score percentage (0-100) to unlock'
     )
     required_quiz = models.ForeignKey(
-        'assessments.MoodleQuiz',
+        'assessments.Quiz',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

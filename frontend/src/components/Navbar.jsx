@@ -24,7 +24,8 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand">
-          Learn<span>LMS</span>
+          <BookOpen size={24} color="var(--clr-primary)" style={{ marginRight: '0.25rem' }} />
+          Learnwith<span>Hasan</span>
         </Link>
 
         <div className="navbar-nav">
@@ -32,18 +33,18 @@ export default function Navbar() {
 
           {user ? (
             <>
-              <Link to={dashboardPath} className="nav-link" title="Dashboard">
-                <LayoutDashboard size={16} style={{ verticalAlign: 'middle' }} />
-                {' '}Dashboard
+              <Link to={dashboardPath} className={`nav-link ${isActive(dashboardPath)}`} title="Dashboard">
+                <LayoutDashboard size={18} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
+                Dashboard
               </Link>
-              <button className="btn btn-outline btn-sm" onClick={handleLogout}>
-                <LogOut size={14} /> Logout
+              <button className="btn btn-outline btn-sm" onClick={handleLogout} style={{ padding: '0.5rem 1rem' }}>
+                <LogOut size={16} /> Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="nav-link">Login</Link>
-              <Link to="/register" className="btn btn-primary btn-sm">Get Started</Link>
+              <Link to="/login" className={`nav-link ${isActive('/login')}`}>Login</Link>
+              <Link to="/register" className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1.25rem' }}>Get Started</Link>
             </>
           )}
         </div>

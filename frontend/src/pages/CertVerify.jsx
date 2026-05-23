@@ -1,4 +1,4 @@
-﻿import { useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { certificatesAPI } from "../api";
 import Navbar from "../components/Navbar";
@@ -30,7 +30,7 @@ export default function CertVerify() {
               <CheckCircle size={14} /> Verified Certificate
             </div>
             <h2 style={{ marginBottom: "0.5rem" }}>Certificate of Completion</h2>
-            <p className="text-muted" style={{ marginBottom: "1.5rem" }}>This certificate is authentic and was issued by LearnLMS.</p>
+            <p className="text-muted" style={{ marginBottom: "1.5rem" }}>This certificate is authentic and was issued by LearnwithHasan.</p>
             <div style={{ background: "var(--clr-surface)", borderRadius: "var(--radius-md)", padding: "1.5rem", textAlign: "left" }}>
               <div style={{ marginBottom: "1rem" }}>
                 <p className="text-muted" style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "1px" }}>Awarded to</p>

@@ -100,12 +100,12 @@ class DrippingService:
     def _check_quiz_score(self, rule) -> bool:
         if not rule.required_quiz or rule.required_score is None:
             return False
-        from apps.assessments.models import QuizAttempt
+        from apps.assessments.models import QuizSubmission
         best = (
-            QuizAttempt.objects.filter(
+            QuizSubmission.objects.filter(
                 student=self.enrollment.student,
-                moodle_quiz=rule.required_quiz,
-                status=QuizAttempt.Status.FINISHED,
+                quiz=rule.required_quiz,
+                status__in=[QuizSubmission.Status.SUBMITTED, QuizSubmission.Status.MARKED],
             )
             .order_by('-score')
             .first()
