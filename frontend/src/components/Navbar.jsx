@@ -1,13 +1,20 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, LogOut, LayoutDashboard, User } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -21,12 +28,21 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path ? 'active' : '';
 
   return (
-    <nav className="navbar">
+    <nav className="navbar" style={scrolled ? { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' } : {}}>
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand">
-          <BookOpen size={24} color="var(--clr-primary)" style={{ marginRight: '0.25rem' }} />
+          <BookOpen size={22} color="var(--clr-primary)" />
           Learnwith<span>Hasan</span>
         </Link>
+
+        {/* Mobile toggle */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          style={{ display: 'none', padding: '0.5rem', color: 'var(--clr-heading)' }}
+          className="mobile-menu-btn"
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
 
         <div className="navbar-nav">
           <Link to="/" className={`nav-link ${isActive('/')}`}>Courses</Link>
@@ -34,17 +50,17 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to={dashboardPath} className={`nav-link ${isActive(dashboardPath)}`} title="Dashboard">
-                <LayoutDashboard size={18} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
+                <LayoutDashboard size={16} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
                 Dashboard
               </Link>
-              <button className="btn btn-outline btn-sm" onClick={handleLogout} style={{ padding: '0.5rem 1rem' }}>
-                <LogOut size={16} /> Logout
+              <button className="btn btn-outline btn-sm" onClick={handleLogout}>
+                <LogOut size={14} /> Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className={`nav-link ${isActive('/login')}`}>Login</Link>
-              <Link to="/register" className="btn btn-primary btn-sm" style={{ padding: '0.5rem 1.25rem' }}>Get Started</Link>
+              <Link to="/login" className={`nav-link ${isActive('/login')}`}>Sign In</Link>
+              <Link to="/register" className="btn btn-primary btn-sm">Get Started</Link>
             </>
           )}
         </div>

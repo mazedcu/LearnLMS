@@ -2,28 +2,28 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { coursesAPI } from "../api";
 import Navbar from "../components/Navbar";
-import { BookOpen, Zap, Shield, Award, ChevronRight, PlayCircle, MousePointerClick, FileText, HelpCircle, Video } from "lucide-react";
+import { BookOpen, ChevronRight, PlayCircle, MousePointerClick, FileText, HelpCircle, Video, Users, Award, TrendingUp, Star, ArrowRight, Sparkles } from "lucide-react";
 
 function CourseCard({ course }) {
   return (
     <Link to={`/courses/${course.slug}`} className="card course-card fade-in-up" style={{ textDecoration: "none" }}>
-      <div className="card-thumb" style={{ minHeight: "180px", background: "var(--clr-surface)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {course.thumbnail ? <img src={course.thumbnail} alt={course.title} /> : <BookOpen size={48} color="rgba(255,255,255,0.2)" />}
+      <div className="card-thumb" style={{ minHeight: "180px", background: "linear-gradient(135deg, #EEF2FF, #F5F3FF)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {course.thumbnail ? <img src={course.thumbnail} alt={course.title} /> : <BookOpen size={48} color="rgba(79,70,229,0.2)" />}
       </div>
       <div className="card-body">
-        <h4 style={{ marginBottom: "0.5rem", lineHeight: "1.3" }}>{course.title}</h4>
-        <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: "1rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <h4 style={{ marginBottom: "0.5rem", lineHeight: "1.35", letterSpacing: "-0.02em" }}>{course.title}</h4>
+        <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: "1rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.6" }}>
           {course.short_description || "Explore this comprehensive course and enhance your skills with expert-led content."}
         </p>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <span className="badge badge-primary">{course.lesson_count} lessons</span>
-          <span style={{ fontWeight: 800, color: "var(--clr-accent)", fontSize: "1.1rem" }}>
-            {course.is_free ? "Free" : `BDT ${course.price}`}
+          <span style={{ fontWeight: 800, color: "var(--clr-primary)", fontSize: "1.05rem" }}>
+            {course.is_free ? <span style={{ color: "var(--clr-success)" }}>Free</span> : `BDT ${course.price}`}
           </span>
         </div>
         {course.instructor_name && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingTop: "1rem", borderTop: "1px solid var(--clr-border)" }}>
-            <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: "linear-gradient(135deg, var(--clr-primary), var(--clr-accent))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontWeight: "bold" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingTop: "0.75rem", borderTop: "1px solid var(--clr-border)" }}>
+            <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg, #4F46E5, #7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "bold", color: "#fff" }}>
               {course.instructor_name.charAt(0)}
             </div>
             <span className="text-muted" style={{ fontSize: "0.8rem", fontWeight: 500 }}>{course.instructor_name}</span>
@@ -35,11 +35,18 @@ function CourseCard({ course }) {
 }
 
 const features = [
-  { Icon: MousePointerClick, title: "Interactive Activities",  desc: "Engage with dynamic H5P modules, simulations, and hands-on exercises." },
-  { Icon: FileText,          title: "Digital Notes",           desc: "Access comprehensive, structured digital notes for every single topic." },
-  { Icon: HelpCircle,        title: "Practice Questions",      desc: "Test your knowledge with extensive quizzes, mock exams, and instant feedback." },
-  { Icon: Video,             title: "Animated Explainer",      desc: "Understand complex concepts easily through high-quality animated videos." },
+  { Icon: MousePointerClick, title: "Interactive Activities",  desc: "Engage with dynamic H5P modules, simulations, and hands-on exercises designed for deeper understanding.", color: "purple" },
+  { Icon: FileText,          title: "Digital Notes",           desc: "Access comprehensive, structured digital notes for every topic — always available, perfectly organized.", color: "pink" },
+  { Icon: HelpCircle,        title: "Practice Questions",      desc: "Test your knowledge with extensive quizzes, mock exams, and instant AI-powered feedback.", color: "green" },
+  { Icon: Video,             title: "Animated Explainers",     desc: "Understand complex concepts through high-quality animated videos that make learning fun.", color: "amber" },
 ];
+
+const featureColorMap = {
+  purple: "feature-icon-purple",
+  pink: "feature-icon-pink",
+  green: "feature-icon-green",
+  amber: "feature-icon-amber",
+};
 
 export default function HomePage() {
   const { data, isLoading, isError } = useQuery({
@@ -53,27 +60,49 @@ export default function HomePage() {
       <Navbar />
       
       {/* HERO SECTION */}
-      <section className="section" style={{ position: "relative", overflow: "hidden", minHeight: "85vh", display: "flex", alignItems: "center" }}>
-        {/* Abstract Background Glows */}
-        <div style={{ position: "absolute", top: "20%", left: "10%", width: "40vw", height: "40vw", background: "radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 60%)", borderRadius: "50%", filter: "blur(60px)", zIndex: -1 }}></div>
-        <div style={{ position: "absolute", bottom: "10%", right: "5%", width: "35vw", height: "35vw", background: "radial-gradient(circle, rgba(45,212,191,0.1) 0%, transparent 60%)", borderRadius: "50%", filter: "blur(60px)", zIndex: -1 }}></div>
+      <section className="section" style={{ position: "relative", overflow: "hidden", minHeight: "90vh", display: "flex", alignItems: "center" }}>
+        {/* Background Orbs */}
+        <div className="hero-gradient-orb" style={{ top: "5%", left: "5%", width: "45vw", height: "45vw", background: "radial-gradient(circle, rgba(79,70,229,0.08) 0%, transparent 60%)" }}></div>
+        <div className="hero-gradient-orb" style={{ bottom: "0%", right: "0%", width: "40vw", height: "40vw", background: "radial-gradient(circle, rgba(236,72,153,0.06) 0%, transparent 60%)" }}></div>
+        <div className="hero-gradient-orb" style={{ top: "40%", right: "30%", width: "25vw", height: "25vw", background: "radial-gradient(circle, rgba(124,58,237,0.05) 0%, transparent 60%)" }}></div>
         
         <div className="container" style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
-          <div className="badge badge-accent fade-in-up" style={{ marginBottom: "1.5rem" }}>Available Now !</div>
-          <h1 className="fade-in-up delay-1" style={{ marginBottom: "1.5rem", maxWidth: "800px", margin: "0 auto 1.5rem" }}>
-            Learn smarter with <br />
+          <div className="fade-in-up" style={{ marginBottom: "1.5rem", display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 1rem", borderRadius: "100px", background: "linear-gradient(135deg, rgba(79,70,229,0.08), rgba(236,72,153,0.08))", border: "1px solid rgba(79,70,229,0.12)", fontSize: "0.8rem", fontWeight: 600, color: "var(--clr-primary)" }}>
+            <Sparkles size={14} /> Available Now — Start Learning Today
+          </div>
+          
+          <h1 className="fade-in-up delay-1" style={{ marginBottom: "1.5rem", maxWidth: "720px", margin: "0 auto 1.5rem" }}>
+            Learn smarter with{" "}
             <span className="gradient-text">effective method</span>
           </h1>
-          <p className="fade-in-up delay-2" style={{ fontSize: "1.15rem", color: "var(--clr-muted)", maxWidth: "600px", margin: "0 auto 2.5rem", lineHeight: "1.7" }}>
-            Experience the next generation of learning. Master your subjects with interactive activities, structured digital notes, extensive practice questions, and animated explainers in one beautiful platform.
+          
+          <p className="fade-in-up delay-2" style={{ fontSize: "1.125rem", color: "var(--clr-muted)", maxWidth: "560px", margin: "0 auto 2.5rem", lineHeight: "1.75" }}>
+            Master your subjects with interactive activities, structured notes, practice questions, and animated explainers — all in one beautiful platform.
           </p>
+          
           <div className="fade-in-up delay-3" style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
             <Link to="/register" className="btn btn-primary btn-lg">
               Start Learning Free <ChevronRight size={18} />
             </Link>
             <a href="#courses" className="btn btn-outline btn-lg">
-              <PlayCircle size={18} style={{ marginRight: "0.25rem" }} /> Browse Courses
+              <PlayCircle size={18} /> Browse Courses
             </a>
+          </div>
+
+          {/* Stats Strip */}
+          <div className="hero-stats fade-in-up delay-4">
+            <div className="hero-stat">
+              <div className="hero-stat-value">500+</div>
+              <div className="hero-stat-label">Active Students</div>
+            </div>
+            <div className="hero-stat">
+              <div className="hero-stat-value">50+</div>
+              <div className="hero-stat-label">Lessons</div>
+            </div>
+            <div className="hero-stat">
+              <div className="hero-stat-value">4.9</div>
+              <div className="hero-stat-label">Average Rating</div>
+            </div>
           </div>
         </div>
       </section>
@@ -82,17 +111,18 @@ export default function HomePage() {
       <section className="section" style={{ position: "relative", zIndex: 2 }}>
         <div className="container">
           <div style={{ textAlign: "center", marginBottom: "4rem" }}>
-            <h2 className="fade-in-up">Why Choose LearnwithHasan?</h2>
-            <p className="text-muted fade-in-up delay-1" style={{ maxWidth: "500px", margin: "1rem auto 0" }}>Powerful features designed to enhance both teaching and learning experiences.</p>
+            <div className="badge badge-primary fade-in-up" style={{ marginBottom: "1rem" }}>Features</div>
+            <h2 className="fade-in-up delay-1">Why Choose LearnwithHasan?</h2>
+            <p className="text-muted fade-in-up delay-2" style={{ maxWidth: "480px", margin: "1rem auto 0", lineHeight: "1.7" }}>Powerful features designed to make learning effective, engaging, and enjoyable.</p>
           </div>
           <div className="grid-4">
-            {features.map(({ Icon, title, desc }, idx) => (
-              <div key={title} className={`glass fade-in-up delay-${(idx % 3) + 1}`} style={{ padding: "2rem", textAlign: "left" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "rgba(139,92,246,0.1)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem", border: "1px solid rgba(139,92,246,0.2)" }}>
-                  <Icon size={24} color="var(--clr-primary)" />
+            {features.map(({ Icon, title, desc, color }, idx) => (
+              <div key={title} className={`feature-card fade-in-up delay-${(idx % 4) + 1}`}>
+                <div className={`feature-icon ${featureColorMap[color]}`}>
+                  <Icon size={24} />
                 </div>
-                <h4 style={{ marginBottom: "0.75rem" }}>{title}</h4>
-                <p className="text-muted" style={{ fontSize: "0.9rem", lineHeight: "1.6" }}>{desc}</p>
+                <h4 style={{ marginBottom: "0.5rem" }}>{title}</h4>
+                <p className="text-muted" style={{ fontSize: "0.875rem", lineHeight: "1.65" }}>{desc}</p>
               </div>
             ))}
           </div>
@@ -100,23 +130,26 @@ export default function HomePage() {
       </section>
 
       {/* COURSES SECTION */}
-      <section className="section" id="courses" style={{ background: "rgba(255,255,255,0.01)", borderTop: "1px solid var(--clr-border)", borderBottom: "1px solid var(--clr-border)" }}>
+      <section className="section" id="courses" style={{ background: "#fff", borderTop: "1px solid var(--clr-border)", borderBottom: "1px solid var(--clr-border)" }}>
         <div className="container">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "3rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "3rem", flexWrap: "wrap", gap: "1rem" }}>
             <div>
-              <h2 className="fade-in-up">Popular Courses</h2>
-              <p className="text-muted fade-in-up delay-1" style={{ marginTop: "0.5rem" }}>Join thousands of students learning new skills.</p>
+              <div className="badge badge-accent fade-in-up" style={{ marginBottom: "0.75rem" }}>Courses</div>
+              <h2 className="fade-in-up delay-1">Popular Courses</h2>
+              <p className="text-muted fade-in-up delay-2" style={{ marginTop: "0.5rem" }}>Join hundreds of students learning new skills every day.</p>
             </div>
-            <Link to="/courses" className="btn btn-outline btn-sm fade-in-up delay-2">View All</Link>
+            <Link to="/courses" className="btn btn-outline btn-sm fade-in-up delay-2">
+              View All <ArrowRight size={14} />
+            </Link>
           </div>
           
           {isLoading && <div style={{ textAlign: "center", padding: "4rem" }}><div className="spinner" style={{ margin: "0 auto" }} /></div>}
           {isError && <div className="alert alert-error" style={{ maxWidth: "600px", margin: "0 auto" }}>Failed to load courses. Please try again later.</div>}
           {!isLoading && courses.length === 0 && (
             <div className="glass" style={{ textAlign: "center", padding: "4rem", maxWidth: "600px", margin: "0 auto" }}>
-              <BookOpen size={48} color="var(--clr-muted)" style={{ margin: "0 auto 1rem", opacity: 0.5 }} />
-              <h4 style={{ marginBottom: "0.5rem" }}>No Courses Available</h4>
-              <p className="text-muted">Check back soon for new content.</p>
+              <BookOpen size={48} color="var(--clr-muted)" style={{ margin: "0 auto 1rem", opacity: 0.4 }} />
+              <h4 style={{ marginBottom: "0.5rem" }}>No Courses Available Yet</h4>
+              <p className="text-muted">We're preparing amazing content. Check back soon!</p>
             </div>
           )}
           
@@ -133,21 +166,24 @@ export default function HomePage() {
       {/* CTA SECTION */}
       <section className="section">
         <div className="container">
-          <div className="glass" style={{ padding: "4rem 2rem", textAlign: "center", background: "linear-gradient(135deg, rgba(139,92,246,0.1), rgba(45,212,191,0.05))", borderColor: "rgba(139,92,246,0.2)" }}>
-            <h2 style={{ marginBottom: "1rem" }}>Ready to Start Learning?</h2>
-            <p className="text-muted" style={{ maxWidth: "500px", margin: "0 auto 2rem" }}>Create your free account today and get access to our library of premium courses.</p>
-            <Link to="/register" className="btn btn-primary btn-lg">Create Free Account</Link>
+          <div className="cta-section">
+            <h2 style={{ marginBottom: "1rem", fontSize: "2rem" }}>Ready to Start Learning?</h2>
+            <p style={{ maxWidth: "460px", margin: "0 auto 2rem", fontSize: "1.05rem" }}>Create your free account today and unlock access to our entire library of premium courses and resources.</p>
+            <Link to="/register" className="btn btn-lg">
+              Get Started Free <ArrowRight size={18} />
+            </Link>
           </div>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer style={{ padding: "3rem 0", textAlign: "center", borderTop: "1px solid var(--clr-border)", background: "var(--clr-surface)" }}>
+      <footer className="footer">
         <div className="container">
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-            <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--clr-heading)" }}>Learnwith<span className="gradient-text">Hasan</span></span>
+          <div className="footer-brand">
+            <BookOpen size={20} color="var(--clr-primary)" />
+            Learnwith<span className="gradient-text">Hasan</span>
           </div>
-          <p className="text-muted" style={{ fontSize: "0.9rem" }}>&copy; {new Date().getFullYear()} LearnwithHasan. All rights reserved.</p>
+          <p className="text-muted" style={{ fontSize: "0.85rem" }}>&copy; {new Date().getFullYear()} LearnwithHasan. All rights reserved.</p>
         </div>
       </footer>
     </div>
