@@ -141,9 +141,7 @@ function EditCourseModal({ courseSlug, onClose }) {
             <div className="spinner" />
           </div>
         ) : (
-
-        {/* Form body */}
-        <form onSubmit={handleSubmit} style={{ padding: "1.75rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <form onSubmit={handleSubmit} style={{ padding: "1.75rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
           {error && (
             <div className="alert alert-error">
@@ -356,7 +354,7 @@ function EditCourseModal({ courseSlug, onClose }) {
               {mutation.isPending ? "Saving…" : <><Check size={15} /> Save Changes</>}
             </button>
           </div>
-        </form>
+          </form>
         )}
       </div>
     </div>
