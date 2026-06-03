@@ -2,33 +2,118 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { coursesAPI } from "../api";
 import Navbar from "../components/Navbar";
-import { BookOpen, ChevronRight, PlayCircle, MousePointerClick, FileText, HelpCircle, Video, Users, Award, TrendingUp, Star, ArrowRight, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, PlayCircle, MousePointerClick, FileText, HelpCircle, Video, Users, Award, TrendingUp, Star, ArrowRight, Sparkles, Clock, GraduationCap } from "lucide-react";
 
-function CourseCard({ course }) {
+/* ── Colour palette for the gradient banner when no thumbnail ── */
+const BANNER_GRADIENTS = [
+  "linear-gradient(135deg,#4F46E5 0%,#7C3AED 100%)",
+  "linear-gradient(135deg,#0EA5E9 0%,#6366F1 100%)",
+  "linear-gradient(135deg,#EC4899 0%,#8B5CF6 100%)",
+  "linear-gradient(135deg,#10B981 0%,#059669 100%)",
+  "linear-gradient(135deg,#F59E0B 0%,#EF4444 100%)",
+];
+
+function StarRating({ rating = 4.5 }) {
   return (
-    <Link to={`/courses/${course.slug}`} className="card course-card fade-in-up" style={{ textDecoration: "none" }}>
-      <div className="card-thumb" style={{ minHeight: "180px", background: "linear-gradient(135deg, #EEF2FF, #F5F3FF)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {course.thumbnail ? <img src={course.thumbnail} alt={course.title} /> : <BookOpen size={48} color="rgba(79,70,229,0.2)" />}
-      </div>
-      <div className="card-body">
-        <h4 style={{ marginBottom: "0.5rem", lineHeight: "1.35", letterSpacing: "-0.02em" }}>{course.title}</h4>
-        <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: "1rem", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.6" }}>
-          {course.short_description || "Explore this comprehensive course and enhance your skills with expert-led content."}
-        </p>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <span className="badge badge-primary">{course.lesson_count} lessons</span>
-          <span style={{ fontWeight: 800, color: "var(--clr-primary)", fontSize: "1.05rem" }}>
-            {course.is_free ? <span style={{ color: "var(--clr-success)" }}>Free</span> : `BDT ${course.price}`}
-          </span>
-        </div>
-        {course.instructor_name && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingTop: "0.75rem", borderTop: "1px solid var(--clr-border)" }}>
-            <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg, #4F46E5, #7C3AED)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "bold", color: "#fff" }}>
-              {course.instructor_name.charAt(0)}
+    <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          size={13}
+          fill={i <= Math.round(rating) ? "#F59E0B" : "none"}
+          color={i <= Math.round(rating) ? "#F59E0B" : "#D1D5DB"}
+          strokeWidth={1.5}
+        />
+      ))}
+      <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#6B7280", marginLeft: "4px" }}>{rating.toFixed(1)}</span>
+    </div>
+  );
+}
+
+function CourseCard({ course, index = 0 }) {
+  const gradient = BANNER_GRADIENTS[index % BANNER_GRADIENTS.length];
+  const initial = course.title ? course.title.charAt(0).toUpperCase() : "C";
+
+  return (
+    <Link
+      to={`/courses/${course.slug}`}
+      style={{ textDecoration: "none", display: "block" }}
+    >
+      <div className="course-card-premium">
+        {/* ── Banner ── */}
+        <div className="course-card-banner" style={{ background: course.thumbnail ? "#EEF2FF" : gradient }}>
+          {course.thumbnail ? (
+            <img src={course.thumbnail} alt={course.title} className="course-card-banner-img" />
+          ) : (
+            <div className="course-card-banner-placeholder">
+              <span className="course-card-banner-initial">{initial}</span>
             </div>
-            <span className="text-muted" style={{ fontSize: "0.8rem", fontWeight: 500 }}>{course.instructor_name}</span>
+          )}
+
+          {/* Price tag */}
+          <div className="course-card-price-tag">
+            {course.is_free
+              ? <span style={{ color: "#10B981", fontWeight: 800 }}>Free</span>
+              : <span>BDT {course.price}</span>}
           </div>
-        )}
+        </div>
+
+        {/* ── Body ── */}
+        <div className="course-card-body">
+          {/* Title */}
+          <h4 className="course-card-title">{course.title}</h4>
+
+          {/* Description */}
+          <p className="course-card-desc">
+            {course.short_description || "Build real skills with expert-crafted lessons, interactive activities, and detailed notes."}
+          </p>
+
+          {/* Meta row: lessons + duration */}
+          <div className="course-card-meta">
+            <span className="course-card-meta-item">
+              <BookOpen size={13} />
+              {course.lesson_count || 0} lessons
+            </span>
+            {course.duration && (
+              <span className="course-card-meta-item">
+                <Clock size={13} />
+                {course.duration}
+              </span>
+            )}
+            <span className="course-card-meta-item">
+              <Users size={13} />
+              {course.student_count || 0} enrolled
+            </span>
+          </div>
+
+          {/* Rating */}
+          <div style={{ marginBottom: "1.25rem" }}>
+            <StarRating rating={course.rating || 4.5} />
+          </div>
+
+          {/* Divider */}
+          <div style={{ borderTop: "1px solid #F3F4F6", paddingTop: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {/* Instructor */}
+            {course.instructor_name ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div className="course-card-avatar">
+                  {course.instructor_name.charAt(0)}
+                </div>
+                <span style={{ fontSize: "0.78rem", color: "#6B7280", fontWeight: 500 }}>{course.instructor_name}</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <GraduationCap size={14} color="#6B7280" />
+                <span style={{ fontSize: "0.78rem", color: "#6B7280" }}>LearnwithHasan</span>
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="course-card-cta">
+              Enroll <ArrowRight size={13} />
+            </div>
+          </div>
+        </div>
       </div>
     </Link>
   );
@@ -155,8 +240,8 @@ export default function HomePage() {
           
           <div className="grid-3">
             {courses.map((c, idx) => (
-              <div key={c.id} style={{ animationDelay: `${idx * 0.1}s` }}>
-                <CourseCard course={c} />
+              <div key={c.id} className="fade-in-up" style={{ animationDelay: `${idx * 0.1}s` }}>
+                <CourseCard course={c} index={idx} />
               </div>
             ))}
           </div>
