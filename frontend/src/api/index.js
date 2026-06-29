@@ -137,3 +137,11 @@ export const certificatesAPI = {
   download: (id) => api.get(`/certificates/${id}/download/`, { responseType: 'blob' }),
   verify: (uuid) => api.get(`/certificates/verify/${uuid}/`),
 };
+
+export const mediaAPI = {
+  listVideos:   ()       => api.get('/media/videos/'),
+  uploadVideo:  (fd)     => api.post('/media/videos/', fd),
+  deleteVideo:  (id)     => api.delete(`/media/videos/${id}/`),
+  embedUrl:     (id)     => `/api/media/videos/${id}/embed/`,
+  streamUrl:    (id)     => `/api/media/videos/${id}/stream/`,
+};

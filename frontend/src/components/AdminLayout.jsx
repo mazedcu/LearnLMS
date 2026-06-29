@@ -3,15 +3,16 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, BookOpen, Users, CreditCard,
-  FileBarChart, LogOut, ChevronRight, Menu, X
+  FileBarChart, LogOut, ChevronRight, Menu, X, Film
 } from "lucide-react";
 
 const NAV = [
-  { key: "overview",  label: "Overview",  icon: LayoutDashboard },
-  { key: "courses",   label: "Courses",   icon: BookOpen },
-  { key: "payments",  label: "Payments",  icon: CreditCard },
-  { key: "users",     label: "Users",     icon: Users },
-  { key: "reports",   label: "Reports",   icon: FileBarChart },
+  { key: "overview",  label: "Overview",        icon: LayoutDashboard },
+  { key: "courses",   label: "Courses",          icon: BookOpen },
+  { key: "videos",    label: "Video Library",    icon: Film },
+  { key: "payments",  label: "Payments",         icon: CreditCard },
+  { key: "users",     label: "Users",            icon: Users },
+  { key: "reports",   label: "Reports",          icon: FileBarChart },
 ];
 
 export default function AdminLayout({ section, setSection, children }) {
