@@ -1,6 +1,21 @@
 from rest_framework import serializers
 from .models import VideoLibrary
 
+# Extensions recognised as audio
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".aac", ".flac", ".m4a", ".opus", ".weba"}
+VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".m4v", ".ogv"}
+
+
+def _detect_media_type(file):
+    """Guess media type from file extension."""
+    import os
+    if not file:
+        return "video"
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext in AUDIO_EXTENSIONS:
+        return "audio"
+    return "video"
+
 
 class VideoLibrarySerializer(serializers.ModelSerializer):
     file_url   = serializers.SerializerMethodField()
@@ -11,17 +26,11 @@ class VideoLibrarySerializer(serializers.ModelSerializer):
     class Meta:
         model  = VideoLibrary
         fields = [
-            'id', 'title', 'description', 'file',
+            'id', 'title', 'description', 'file', 'media_type',
             'file_url', 'embed_url', 'embed_code',
             'size_bytes', 'size_mb', 'uploaded_at',
         ]
-        read_only_fields = ['id', 'uploaded_at', 'size_bytes']
-
-    def _base_url(self):
-        request = self.context.get('request')
-        if request:
-            return f"{request.scheme}://{request.get_host()}"
-        return ""
+        read_only_fields = ['id', 'uploaded_at', 'size_bytes', 'media_type']
 
     def get_file_url(self, obj):
         request = self.context.get('request')
@@ -37,6 +46,12 @@ class VideoLibrarySerializer(serializers.ModelSerializer):
 
     def get_embed_code(self, obj):
         embed_url = self.get_embed_url(obj)
+        if obj.media_type == "audio":
+            return (
+                f'<iframe src="{embed_url}" '
+                f'width="100%" height="120" '
+                f'frameborder="0" allow="autoplay"></iframe>'
+            )
         return (
             f'<iframe src="{embed_url}" '
             f'width="100%" height="450" '
@@ -53,4 +68,5 @@ class VideoLibrarySerializer(serializers.ModelSerializer):
         file = validated_data.get('file')
         if file:
             validated_data['size_bytes'] = file.size
+            validated_data['media_type'] = _detect_media_type(file)
         return super().create(validated_data)

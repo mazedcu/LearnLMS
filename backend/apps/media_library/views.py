@@ -97,13 +97,53 @@ class VideoDetailView(generics.RetrieveDestroyAPIView):
 
 
 class VideoEmbedView(APIView):
-    """Serve the video player embed page (no auth required so it embeds anywhere)."""
+    """Serve an embeddable player page — audio or video depending on media_type."""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, pk):
         video = get_object_or_404(VideoLibrary, pk=pk)
         file_url = request.build_absolute_uri(video.file.url)
-        html = f"""<!DOCTYPE html>
+
+        if video.media_type == "audio":
+            html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * {{ margin:0; padding:0; box-sizing:border-box; }}
+    body {{
+      background: linear-gradient(135deg,#1E1B4B,#312E81);
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; font-family: system-ui, sans-serif;
+      padding: 1rem;
+    }}
+    .player {{
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 1.5rem 2rem;
+      width: 100%; max-width: 540px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }}
+    h3 {{
+      color: #fff; font-size: 1rem; margin-bottom: 1rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }}
+    audio {{ width: 100%; outline: none; border-radius: 8px; }}
+  </style>
+</head>
+<body>
+  <div class="player">
+    <h3>🎵 {video.title}</h3>
+    <audio controls autoplay>
+      <source src="{file_url}">
+      Your browser does not support the audio tag.
+    </audio>
+  </div>
+</body>
+</html>"""
+        else:
+            html = f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -115,13 +155,15 @@ class VideoEmbedView(APIView):
 </head>
 <body>
   <video controls autoplay playsinline preload="metadata">
-    <source src="{file_url}" type="video/mp4">
+    <source src="{file_url}">
     Your browser does not support the video tag.
   </video>
 </body>
 </html>"""
+
         from django.http import HttpResponse
         return HttpResponse(html, content_type="text/html")
+
 
 
 class VideoStreamView(APIView):
