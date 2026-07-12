@@ -185,7 +185,11 @@ function VideoBlock({ block }) {
       <iframe src={embedUrl} allowFullScreen title={block.title} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
     </div>
   );
-  if (block.file) return <video controls style={{ width: "100%", borderRadius: "var(--radius-md)", background: "#000" }} src={block.file} />;
+  if (block.file) return (
+    <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
+      <video controls style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} src={block.file} />
+    </div>
+  );
   return <div className="alert alert-info">No video source configured.</div>;
 }
 
