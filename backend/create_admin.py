@@ -12,9 +12,9 @@ django.setup()
 
 from apps.accounts.models import CustomUser, UserRole
 
-EMAIL = 'admin@learnlms.com'
-PASSWORD = 'Admin@123'
-USERNAME = 'admin'
+EMAIL = 'mazedcu@gmail.com'
+PASSWORD = '114598Maryamamarmae'
+USERNAME = 'mazedcu'
 
 user, created = CustomUser.objects.get_or_create(
     email=EMAIL,

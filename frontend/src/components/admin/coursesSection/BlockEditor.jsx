@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Save, X, Trash2 } from "lucide-react";
+import { Plus, Save, X, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { adminAPI, lessonsAPI } from "../../../api";
 import { apiErrorMessage } from "./apiError";
 
@@ -61,6 +61,32 @@ export default function BlockEditor({ lessonId, onClose }) {
   });
 
   const updateField = (field, value) => setForm((f) => ({ ...f, [field]: value }));
+
+  const moveBlock = (index, direction) => {
+    if (!blocks) return;
+    const newBlocks = [...blocks];
+    if (direction === "up" && index > 0) {
+      const temp = newBlocks[index];
+      newBlocks[index] = newBlocks[index - 1];
+      newBlocks[index - 1] = temp;
+    } else if (direction === "down" && index < newBlocks.length - 1) {
+      const temp = newBlocks[index];
+      newBlocks[index] = newBlocks[index + 1];
+      newBlocks[index + 1] = temp;
+    } else {
+      return;
+    }
+    
+    // Update the backend orders for swapped blocks
+    const promises = newBlocks.map((b, i) => {
+      if (b.order !== i + 1) {
+        return adminAPI.updateBlock(b.id, { order: i + 1 });
+      }
+      return null;
+    }).filter(Boolean);
+    
+    Promise.all(promises).then(() => qc.invalidateQueries(["blocks", lessonId]));
+  };
 
   return (
     <div style={{ padding: "1rem", background: "var(--clr-surface)", border: "1px solid var(--clr-border)", borderRadius: "var(--radius-md)", marginTop: "0.5rem" }}>
@@ -228,7 +254,7 @@ export default function BlockEditor({ lessonId, onClose }) {
       {(blocks || []).length === 0 && !adding && (
         <p className="text-muted" style={{ fontSize: "0.8rem" }}>No content blocks yet.</p>
       )}
-      {(blocks || []).map((b) => (
+      {(blocks || []).map((b, index) => (
         <div
           key={b.id}
           style={{
@@ -247,13 +273,31 @@ export default function BlockEditor({ lessonId, onClose }) {
             </span>
             {b.title || "(untitled)"}
           </span>
-          <button
-            className="btn btn-danger btn-sm"
-            style={{ padding: "0.25rem 0.5rem" }}
-            onClick={() => del.mutate(b.id)}
-          >
-            <Trash2 size={12} />
-          </button>
+          <div style={{ display: "flex", gap: "0.25rem" }}>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ padding: "0.25rem 0.5rem" }}
+              disabled={index === 0}
+              onClick={() => moveBlock(index, "up")}
+            >
+              <ArrowUp size={12} />
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ padding: "0.25rem 0.5rem" }}
+              disabled={index === blocks.length - 1}
+              onClick={() => moveBlock(index, "down")}
+            >
+              <ArrowDown size={12} />
+            </button>
+            <button
+              className="btn btn-danger btn-sm"
+              style={{ padding: "0.25rem 0.5rem", marginLeft: "0.25rem" }}
+              onClick={() => del.mutate(b.id)}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
         </div>
       ))}
     </div>
