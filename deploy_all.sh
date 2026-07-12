@@ -12,7 +12,7 @@ source venv/bin/activate
 pip install -r requirements.txt gunicorn
 echo "SECRET_KEY='super_secret_key'" > .env
 echo "DEBUG=False" >> .env
-echo "ALLOWED_HOSTS='104.248.226.234,localhost,127.0.0.1'" >> .env
+echo "ALLOWED_HOSTS='104.248.226.234,localhost,127.0.0.1,learnwithhasan.xyz,www.learnwithhasan.xyz'" >> .env
 python manage.py migrate
 python manage.py collectstatic --noinput
 
