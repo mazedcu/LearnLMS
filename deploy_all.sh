@@ -3,7 +3,7 @@ set -e
 
 cd /var/www/learnwithhasan
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv python3-pip npm
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3-venv python3-pip
 
 echo "Setting up backend..."
 cd backend
