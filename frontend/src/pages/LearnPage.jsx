@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { assessmentsAPI, coursesAPI, lessonsAPI } from "../api";
 import Navbar from "../components/Navbar";
-import { Lock, CheckCircle, Maximize, Minimize, ChevronRight, RotateCcw, AlertTriangle, Timer, Award } from "lucide-react";
+import { Lock, CheckCircle, Maximize, Minimize, ChevronRight, RotateCcw, AlertTriangle, Timer, Award, Menu, X } from "lucide-react";
 import QuizPlayer from "../components/quiz/QuizPlayer";
 import { useAuth } from "../context/AuthContext";
 
@@ -181,12 +181,12 @@ function VideoBlock({ block }) {
   const embedUrl = getEmbedUrl(block.video_url);
 
   if (embedUrl) return (
-    <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
+    <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
       <iframe src={embedUrl} allowFullScreen title={block.title} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
     </div>
   );
   if (block.file) return (
-    <div style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
+    <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
       <video controls style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} src={block.file} />
     </div>
   );
@@ -281,9 +281,44 @@ function BlockRenderer({ block }) {
 }
 
 // ── Sidebar Lesson List ────────────────────────────────────────────────────
-function Sidebar({ modules, activeLessonId, slug, onSelect }) {
+function Sidebar({ modules, activeLessonId, slug, onSelect, isMobileOpen, onMobileClose }) {
   return (
-    <aside style={{ width: "280px", minWidth: "280px", borderRight: "1px solid var(--clr-border)", overflowY: "auto", padding: "1rem 0" }}>
+    <aside 
+      style={{ 
+        width: "280px", 
+        minWidth: "280px", 
+        borderRight: "1px solid var(--clr-border)", 
+        overflowY: "auto", 
+        padding: "1rem 0",
+        position: isMobileOpen ? "fixed" : "relative",
+        top: isMobileOpen ? "64px" : "auto",
+        left: isMobileOpen ? "0" : "auto",
+        height: isMobileOpen ? "calc(100vh - 64px)" : "auto",
+        zIndex: isMobileOpen ? 999 : "auto",
+        background: "#fff",
+        transform: isMobileOpen ? "translateX(0)" : "translateX(-100%)",
+        transition: "transform 0.3s ease"
+      }} 
+      className="lesson-sidebar"
+    >
+      {isMobileOpen && (
+        <button 
+          onClick={onMobileClose}
+          style={{
+            position: "absolute",
+            top: "0.5rem",
+            right: "0.5rem",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "0.5rem",
+            zIndex: 1000
+          }}
+          className="mobile-close-btn"
+        >
+          <X size={18} />
+        </button>
+      )}
       <div style={{ padding: "0 1rem 1rem", borderBottom: "1px solid var(--clr-border)" }}>
         <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--clr-muted)", textTransform: "uppercase", letterSpacing: "1px" }}>Course Content</p>
       </div>
@@ -309,6 +344,7 @@ export default function LearnPage() {
   const { slug, lessonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { data: courseData } = useQuery({
     queryKey: ["course-learn", slug],
@@ -346,7 +382,57 @@ export default function LearnPage() {
     <div className="page" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       <Navbar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <Sidebar modules={courseData.modules || []} activeLessonId={currentId} slug={slug} onSelect={handleSelect} />
+        {/* Mobile sidebar toggle */}
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          style={{
+            position: "fixed",
+            top: "70px",
+            left: "1rem",
+            zIndex: 1000,
+            background: "var(--clr-primary)",
+            color: "#fff",
+            border: "none",
+            borderRadius: "50%",
+            width: "44px",
+            height: "44px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "var(--shadow-md)",
+            cursor: "pointer",
+            "@media (min-width: 769px)": {
+              display: "none"
+            }
+          }}
+          className="mobile-sidebar-toggle"
+        >
+          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div 
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.5)",
+              zIndex: 998,
+              display: "none"
+            }}
+            className="mobile-sidebar-overlay"
+          />
+        )}
+        
+        <Sidebar 
+          modules={courseData.modules || []} 
+          activeLessonId={currentId} 
+          slug={slug} 
+          onSelect={handleSelect}
+          isMobileOpen={sidebarOpen}
+          onMobileClose={() => setSidebarOpen(false)}
+        />
         <main style={{ flex: 1, overflowY: "auto", padding: "2rem" }}>
           {currentLesson && (
             <>

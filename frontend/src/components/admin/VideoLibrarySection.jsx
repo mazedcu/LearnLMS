@@ -298,11 +298,11 @@ function MediaCard({ item, onDelete }) {
         </p>
 
         {/* Copy buttons */}
-        <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
+        <div className="copy-buttons" style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
           <CopyBtn text={item.file_url}  label="Direct Link" id={`dl-${item.id}`} />
           <CopyBtn text={item.embed_url} label="Embed URL"   id={`eu-${item.id}`} />
         </div>
-        <div style={{ display: "flex", gap: "0.35rem", marginBottom: "0.5rem" }}>
+        <div className="copy-buttons" style={{ display: "flex", gap: "0.35rem", marginBottom: "0.5rem" }}>
           <CopyBtn text={item.embed_code} label="Embed Code"  id={`ec-${item.id}`} />
           <CopyBtn text={`${window.location.origin}/api/media/videos/${item.id}/stream/`}
             label="Stream URL" id={`su-${item.id}`} />
@@ -392,7 +392,7 @@ export default function VideoLibrarySection() {
           ))}
 
           {/* Search */}
-          <div style={{ position: "relative", marginLeft: "auto" }}>
+          <div style={{ position: "relative", marginLeft: "auto" }} className="search-container">
             <Search size={14} style={{ position: "absolute", left: "0.75rem",
               top: "50%", transform: "translateY(-50%)", color: "#9CA3AF", pointerEvents: "none" }} />
             <input className="form-control" placeholder="Search…"
@@ -449,7 +449,7 @@ export default function VideoLibrarySection() {
         </div>
       )}
 
-      <div style={{
+      <div className="media-grid" style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
         gap: "1.25rem",
