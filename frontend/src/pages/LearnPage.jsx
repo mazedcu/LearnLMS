@@ -32,7 +32,7 @@ function HTMLBlock({ block }) {
 
   const sandbox = src
     ? "allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
-    : "allow-same-origin allow-scripts";
+    : "allow-same-origin allow-scripts allow-presentation";
 
   return (
     <div style={{ position: "relative", border: "1px solid var(--clr-border)", borderRadius: "var(--radius-md)", overflow: "hidden", marginBottom: "1.5rem" }}>
@@ -48,12 +48,14 @@ function HTMLBlock({ block }) {
             src={src}
             sandbox={sandbox}
             style={{ width: "100%", height: fs ? "100vh" : "600px", border: "none", display: "block" }}
+            loading="lazy"
           />
         ) : (
           <iframe
             srcDoc={srcDoc}
             sandbox={sandbox}
             style={{ width: "100%", height: fs ? "100vh" : "600px", border: "none", display: "block" }}
+            loading="lazy"
             onLoad={e => {
               if (!fs) {
                 try { e.target.style.height = e.target.contentDocument.body.scrollHeight + 40 + "px"; } catch {}
@@ -129,7 +131,13 @@ function H5PBlock({ block }) {
     return (
       <div className="h5p-container">
         {block.title && <p style={{ padding: "0.75rem 1rem", background: "var(--clr-surface)", borderBottom: "1px solid var(--clr-border)", fontSize: "0.875rem", fontWeight: 600 }}>{block.title}</p>}
-        <iframe src={embedUrl} allowFullScreen title={block.title || "H5P Activity"} style={{ width: "100%", minHeight: "480px", border: "none" }} />
+        <iframe 
+          src={embedUrl} 
+          allowFullScreen 
+          title={block.title || "H5P Activity"} 
+          style={{ width: "100%", minHeight: "480px", border: "none" }}
+          loading="lazy"
+        />
       </div>
     );
   }
@@ -182,12 +190,26 @@ function VideoBlock({ block }) {
 
   if (embedUrl) return (
     <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
-      <iframe src={embedUrl} allowFullScreen title={block.title} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
+      <iframe 
+        src={embedUrl} 
+        allowFullScreen 
+        title={block.title} 
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
     </div>
   );
   if (block.file) return (
     <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
-      <video controls preload="metadata" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} src={block.file} />
+      <video 
+        controls 
+        preload="metadata" 
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} 
+        src={block.file}
+        autoPlay={false}
+      />
     </div>
   );
   return <div className="alert alert-info">No video source configured.</div>;
@@ -274,7 +296,7 @@ function BlockRenderer({ block }) {
     case "html":      return <HTMLBlock block={block} />;
     case "h5p":       return <H5PBlock block={block} />;
     case "video":     return <VideoBlock block={block} />;
-    case "document":  return block.file ? <iframe src={block.file} style={{ width: "100%", height: "600px", border: "none", borderRadius: "var(--radius-md)" }} /> : null;
+    case "document":  return block.file ? <iframe src={block.file} style={{ width: "100%", height: "600px", border: "none", borderRadius: "var(--radius-md)" }} loading="lazy" /> : null;
     case "image":     return block.file ? <img src={block.file} alt={block.title} style={{ width: "100%", borderRadius: "var(--radius-md)" }} /> : null;
     default:          return null;
   }
