@@ -244,7 +244,7 @@ function MediaCard({ item, onDelete }) {
           onClick={() => setPlaying(p => !p)}
         >
           {playing ? (
-            <video src={item.file_url} controls autoPlay
+            <video src={item.file_url} controls
               style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
           ) : (
             <>

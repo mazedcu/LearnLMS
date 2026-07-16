@@ -165,15 +165,15 @@ function VideoBlock({ block }) {
     let vidId = "";
     if (url.includes("youtube.com/watch?v=")) {
       vidId = url.split("v=")[1]?.split("&")[0];
-      return `https://www.youtube.com/embed/${vidId}`;
+      return `https://www.youtube.com/embed/${vidId}?autoplay=0&rel=0`;
     }
     if (url.includes("youtu.be/")) {
       vidId = url.split("youtu.be/")[1]?.split("?")[0];
-      return `https://www.youtube.com/embed/${vidId}`;
+      return `https://www.youtube.com/embed/${vidId}?autoplay=0&rel=0`;
     }
     if (url.includes("vimeo.com/")) {
       vidId = url.split("vimeo.com/")[1]?.split("?")[0];
-      return `https://player.vimeo.com/video/${vidId}`;
+      return `https://player.vimeo.com/video/${vidId}?autoplay=0`;
     }
     return url;
   };
@@ -187,7 +187,7 @@ function VideoBlock({ block }) {
   );
   if (block.file) return (
     <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
-      <video controls style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} src={block.file} />
+      <video controls preload="metadata" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }} src={block.file} />
     </div>
   );
   return <div className="alert alert-info">No video source configured.</div>;

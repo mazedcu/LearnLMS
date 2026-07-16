@@ -373,6 +373,23 @@ p  { color: var(--clr-text); }
   .section { padding: 4rem 0; }
   h1 { font-size: 2.25rem; }
   h2 { font-size: 1.75rem; }
+  
+  /* Tablet course detail adjustments */
+  .course-detail-header {
+    grid-template-columns: 1fr 300px !important;
+    gap: 2rem !important;
+  }
+  
+  /* Tablet grid adjustments */
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  /* Tablet hero section */
+  .hero-gradient-orb {
+    width: 30vw !important;
+    height: 30vw !important;
+  }
 }
 @media (max-width: 640px) {
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
@@ -515,6 +532,121 @@ p  { color: var(--clr-text); }
   }
   .copy-buttons button {
     width: 100% !important;
+  }
+  
+  /* Mobile course detail adjustments */
+  .course-detail-header {
+    grid-template-columns: 1fr !important;
+    gap: 2rem !important;
+  }
+  
+  .course-card {
+    position: relative !important;
+    top: auto !important;
+  }
+  
+  /* Mobile module items */
+  .module-item {
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .module-item button {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.85rem !important;
+  }
+  
+  .module-item .lesson-item {
+    padding: 0.6rem 1rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Mobile hero section */
+  .hero-gradient-orb {
+    display: none !important;
+  }
+  
+  .hero-stats {
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+  }
+  
+  .hero-stat {
+    padding: 1rem !important;
+  }
+  
+  /* Mobile features section */
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  .feature-card {
+    padding: 1.5rem !important;
+  }
+  
+  /* Mobile courses section */
+  .grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  /* Mobile CTA section */
+  .cta-section {
+    padding: 2rem 1.5rem !important;
+  }
+  
+  .cta-section h2 {
+    font-size: 1.5rem !important;
+  }
+  
+  /* Mobile footer */
+  .footer {
+    padding: 2rem 1rem !important;
+  }
+  
+  /* Mobile course card */
+  .course-card-premium {
+    margin-bottom: 1rem !important;
+  }
+  
+  .course-card-banner {
+    height: 180px !important;
+  }
+  
+  .course-card-body {
+    padding: 1.25rem !important;
+  }
+  
+  .course-card-title {
+    font-size: 1rem !important;
+  }
+  
+  .course-card-desc {
+    font-size: 0.85rem !important;
+  }
+  
+  .course-card-meta {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  
+  .course-card-meta-item {
+    font-size: 0.75rem !important;
+  }
+  
+  /* Mobile hero section text */
+  .fade-in-up h1 {
+    font-size: 1.75rem !important;
+  }
+  
+  .fade-in-up p {
+    font-size: 1rem !important;
+  }
+  
+  /* Mobile buttons */
+  .btn-lg {
+    padding: 0.75rem 1.5rem !important;
+    font-size: 0.9rem !important;
   }
 }
 
