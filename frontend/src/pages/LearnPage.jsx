@@ -6,6 +6,7 @@ import Navbar from "../components/Navbar";
 import { Lock, CheckCircle, Maximize, Minimize, ChevronRight, RotateCcw, AlertTriangle, Timer, Award, Menu, X } from "lucide-react";
 import QuizPlayer from "../components/quiz/QuizPlayer";
 import { useAuth } from "../context/AuthContext";
+import SecureVideoPlayer from "../components/SecureVideoPlayer";
 
 // ── HTML Block ─────────────────────────────────────────────────────────────
 function HTMLBlock({ block }) {
@@ -202,18 +203,7 @@ function VideoBlock({ block }) {
     </div>
   );
   if (block.file) return (
-    <div className="video-container" style={{ position: "relative", paddingBottom: "56.25%", height: 0, borderRadius: "var(--radius-md)", overflow: "hidden", background: "#000" }}>
-      <video
-        controls
-        preload="metadata"
-        controlsList="nodownload noremoteplayback"
-        disablePictureInPicture
-        onContextMenu={e => e.preventDefault()}
-        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "contain" }}
-        src={block.file}
-        autoPlay={false}
-      />
-    </div>
+    <SecureVideoPlayer src={block.file} title={block.title} />
   );
   return <div className="alert alert-info">No video source configured.</div>;
 }
