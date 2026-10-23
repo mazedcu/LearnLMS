@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import AdminLayout from "../../components/AdminLayout";
 import OverviewSection from "../../components/admin/OverviewSection";
 import CoursesSection from "../../components/admin/CoursesSection";
@@ -17,7 +18,9 @@ const SECTIONS = {
 };
 
 export default function AdminDashboard() {
-  const [section, setSection] = useState("overview");
+  const location = useLocation();
+  // Coming back from the Course Builder lands on the Courses tab
+  const [section, setSection] = useState(location.state?.section || "overview");
   const Section = SECTIONS[section] || OverviewSection;
   return (
     <AdminLayout section={section} setSection={setSection}>

@@ -50,10 +50,10 @@ export default function CourseCreateForm({ onDone }) {
       if (imageFile) fd.append("thumbnail", imageFile);
       return coursesAPI.create(fd);
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries(["admin-courses"]);
       qc.invalidateQueries(["my-courses"]);
-      onDone();
+      onDone(res?.data);
     },
     onError: (err) => setError(apiErrorMessage(err, "Failed to create course.")),
   });

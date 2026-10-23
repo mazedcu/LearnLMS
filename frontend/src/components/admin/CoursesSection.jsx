@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, BookOpen, Eye, ExternalLink, Trash2 } from "lucide-react";
 import { coursesAPI, adminAPI } from "../../api";
-import CourseEditor from "./coursesSection/CourseEditor";
 import CourseCreateForm from "./coursesSection/CourseCreateForm";
 
 function CourseListItem({ course, onManage, onDelete }) {
@@ -38,7 +38,7 @@ function CourseListItem({ course, onManage, onDelete }) {
           <ExternalLink size={13} />
         </a>
         <button className="btn btn-primary btn-sm" onClick={onManage}>
-          <Edit2 size={13} /> Manage
+          <Edit2 size={13} /> Build content
         </button>
         <button
           className="btn btn-danger btn-sm"
@@ -55,8 +55,9 @@ function CourseListItem({ course, onManage, onDelete }) {
 
 export default function CoursesSection() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const openBuilder = (slug) => navigate(`/dashboard/admin/courses/${slug}`);
 
   const delCourse = useMutation({
     mutationFn: (slug) => adminAPI.deleteCourse(slug),
@@ -71,10 +72,6 @@ export default function CoursesSection() {
       ),
   });
 
-  if (editing) {
-    return <CourseEditor course={editing} onBack={() => setEditing(null)} />;
-  }
-
   const courses = data || [];
 
   return (
@@ -86,7 +83,14 @@ export default function CoursesSection() {
         </button>
       </div>
 
-      {creating && <CourseCreateForm onDone={() => setCreating(false)} />}
+      {creating && (
+        <CourseCreateForm
+          onDone={(created) => {
+            setCreating(false);
+            if (created?.slug) openBuilder(created.slug);
+          }}
+        />
+      )}
       {isLoading && <div className="spinner" style={{ margin: "2rem auto" }} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
@@ -94,7 +98,7 @@ export default function CoursesSection() {
           <CourseListItem
             key={c.id}
             course={c}
-            onManage={() => setEditing(c)}
+            onManage={() => openBuilder(c.slug)}
             onDelete={() => {
               if (confirm(`Delete "${c.title}"? This cannot be undone.`)) {
                 delCourse.mutate(c.slug);

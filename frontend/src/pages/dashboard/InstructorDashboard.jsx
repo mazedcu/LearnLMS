@@ -434,6 +434,7 @@ export default function InstructorDashboard() {
                   <p className="text-muted" style={{ fontSize: "0.8rem", marginBottom: "1rem" }}>{c.lesson_count} lessons</p>
 
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <Link to={`/dashboard/admin/courses/${c.slug}`} className="btn btn-primary btn-sm">Build content</Link>
                     <Link to={`/courses/${c.slug}`} className="btn btn-outline btn-sm">View</Link>
                     <button
                       className="btn btn-sm"

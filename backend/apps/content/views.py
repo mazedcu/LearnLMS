@@ -40,7 +40,29 @@ class ContentBlockListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         lesson = get_object_or_404(Lesson, pk=self.kwargs['lesson_pk'])
-        serializer.save(lesson=lesson)
+        extra = {}
+        if 'order' not in self.request.data:
+            from django.db.models import Max
+            extra['order'] = (ContentBlock.objects.filter(lesson=lesson).aggregate(m=Max('order'))['m'] or 0) + 1
+        serializer.save(lesson=lesson, **extra)
+
+
+class BlockReorderView(APIView):
+    """POST {"blocks": [<id>, ...]} — renumber a lesson's blocks in that order."""
+    permission_classes = [IsInstructorOrAdmin]
+
+    def post(self, request, lesson_pk):
+        lesson = get_object_or_404(Lesson, pk=lesson_pk)
+        ids = [str(i) for i in (request.data.get('blocks') or [])]
+        existing = {str(b) for b in ContentBlock.objects.filter(lesson=lesson).values_list('id', flat=True)}
+        if set(ids) != existing or len(ids) != len(existing):
+            return Response({'detail': 'List every block in this lesson exactly once.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        from django.db import transaction
+        with transaction.atomic():
+            for i, bid in enumerate(ids, start=1):
+                ContentBlock.objects.filter(pk=bid).update(order=i)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ContentBlockDetailView(generics.RetrieveUpdateDestroyAPIView):

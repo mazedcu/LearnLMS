@@ -78,6 +78,26 @@ export const adminAPI = {
   deleteQuestion: (id) => api.delete(`/assessments/questions/${id}/`),
 };
 
+// Course Builder (teacher)
+export const builderAPI = {
+  outline: (slug) => api.get(`/courses/${slug}/outline/`),
+  reorder: (slug, modules) => api.post(`/courses/${slug}/reorder/`, { modules }),
+  reorderBlocks: (lessonId, blocks) => api.post(`/content/lessons/${lessonId}/blocks/reorder/`, { blocks }),
+  // Multipart upload with progress callback (0–100)
+  createBlock: (lessonId, formData, onProgress) =>
+    api.post(`/content/lessons/${lessonId}/blocks/`, formData, {
+      onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+    }),
+  updateBlock: (id, formData, onProgress) =>
+    api.patch(`/content/blocks/${id}/`, formData, {
+      onUploadProgress: (e) => onProgress?.(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
+    }),
+  createDrip: (data) => api.post('/drip/rules/', data),
+  updateDrip: (lessonId, data) => api.patch(`/drip/rules/${lessonId}/`, data),
+  deleteDrip: (lessonId) => api.delete(`/drip/rules/${lessonId}/`),
+  videoLibrary: () => api.get('/media/videos/'),
+};
+
 export const coursesAPI = {
   list: (params) => api.get('/courses/', { params }),
   detail: (slug) => api.get(`/courses/${slug}/`),

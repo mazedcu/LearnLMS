@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit2, Trash2, Save, X, Eye } from "lucide-react";
 import { adminAPI } from "../../../../api";
@@ -133,11 +133,16 @@ function QuestionManager({ quiz, onBack }) {
   );
 }
 
-export default function NativeQuizEditor({ lessonId, onClose }) {
+export default function NativeQuizEditor({ lessonId, onClose, startCreating = 0, onChanged }) {
   const qc = useQueryClient();
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [previewQuiz, setPreviewQuiz] = useState(null);
   const [addingQuiz, setAddingQuiz] = useState(false);
+
+  // Parent can ask us to open the "create quiz" form (Course Builder's Quiz tile)
+  useEffect(() => {
+    if (startCreating) { setActiveQuiz(null); setPreviewQuiz(null); setAddingQuiz(true); }
+  }, [startCreating]);
 
   const { data: quizzesRaw, isLoading } = useQuery({
     queryKey: ["quizzes-admin", lessonId],
@@ -151,9 +156,12 @@ export default function NativeQuizEditor({ lessonId, onClose }) {
 
   const createQuiz = useMutation({
     mutationFn: (payload) => adminAPI.createQuiz(lessonId, payload),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries(["quizzes-admin", lessonId]);
       setAddingQuiz(false);
+      onChanged?.();
+      // Go straight to adding questions for the new quiz
+      if (res?.data?.id) setActiveQuiz(res.data);
     },
   });
 
@@ -162,6 +170,7 @@ export default function NativeQuizEditor({ lessonId, onClose }) {
     onSuccess: () => {
       qc.invalidateQueries(["quizzes-admin", lessonId]);
       setActiveQuiz(null);
+      onChanged?.();
     },
   });
 
@@ -177,7 +186,7 @@ export default function NativeQuizEditor({ lessonId, onClose }) {
     <div style={{ padding: "1rem", background: "rgba(0,212,170,0.04)", border: "1px solid rgba(0,212,170,0.2)", borderRadius: "var(--radius-md)", marginTop: "0.5rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "1rem" }}>
         <h5 style={{ margin: 0, color: "var(--clr-accent)" }}>Quizzes</h5>
-        <button className="btn btn-outline btn-sm" onClick={onClose}><X size={13} /></button>
+        {onClose && <button className="btn btn-outline btn-sm" onClick={onClose}><X size={13} /></button>}
       </div>
 
       {isLoading && <div className="spinner" style={{ margin: "1rem auto" }} />}

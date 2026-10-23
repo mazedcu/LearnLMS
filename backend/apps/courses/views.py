@@ -92,7 +92,11 @@ class ModuleListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         course = get_object_or_404(Course, slug=self.kwargs['slug'])
-        serializer.save(course=course)
+        # Always append: (course, order) is unique, so a client-supplied order
+        # collides after deletions. Reordering goes through /reorder/.
+        from django.db.models import Max
+        last = Module.objects.filter(course=course).aggregate(m=Max('order'))['m'] or 0
+        serializer.save(course=course, order=last + 1)
 
 
 class ModuleDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -126,7 +130,11 @@ class LessonListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         module = get_object_or_404(Module, pk=self.kwargs['module_pk'])
-        serializer.save(module=module)
+        extra = {}
+        if 'order' not in self.request.data:
+            from django.db.models import Max
+            extra['order'] = (Lesson.objects.filter(module=module).aggregate(m=Max('order'))['m'] or 0) + 1
+        serializer.save(module=module, **extra)
 
 
 class LessonDetailView(generics.RetrieveUpdateDestroyAPIView):

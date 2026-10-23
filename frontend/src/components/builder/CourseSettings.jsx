@@ -1,12 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Eye, Trash2, Edit2, Save, X, ImagePlus, Settings, LayoutList } from "lucide-react";
-import { coursesAPI, adminAPI } from "../../../api";
-import InlineForm from "./InlineForm";
-import ModuleCard from "./ModuleCard";
+import { Save, Trash2, ImagePlus, X } from "lucide-react";
+import { coursesAPI } from "../../api";
 
 /* ── Edit Details Panel ──────────────────────────────────────────── */
-function EditDetailsPanel({ detail, courseSlug, onSaved }) {
+export function EditDetailsPanel({ detail, courseSlug, onSaved }) {
   const qc = useQueryClient();
   const fileInputRef = useRef(null);
 
@@ -55,7 +53,8 @@ function EditDetailsPanel({ detail, courseSlug, onSaved }) {
     },
     onSuccess: () => {
       qc.invalidateQueries(["admin-courses"]);
-      qc.invalidateQueries(["course-admin", courseSlug]);
+      qc.invalidateQueries({ queryKey: ["course-admin", courseSlug] });
+      qc.invalidateQueries({ queryKey: ["builder-outline", courseSlug] });
       setSuccess(true);
       setImageFile(null);
       setTimeout(() => setSuccess(false), 2000);
@@ -222,116 +221,29 @@ function EditDetailsPanel({ detail, courseSlug, onSaved }) {
   );
 }
 
-/* ── Main CourseEditor ───────────────────────────────────────────── */
-export default function CourseEditor({ course, onBack }) {
-  const qc = useQueryClient();
-  const [tab, setTab]           = useState("modules"); // "modules" | "details"
-  const [addMod, setAddMod]     = useState(false);
-
-  const delCourse = useMutation({
-    mutationFn: () => adminAPI.deleteCourse(course.slug),
-    onSuccess: () => { qc.invalidateQueries(["admin-courses"]); onBack(); },
-  });
-
+/* ── Drawer wrapper used by the Course Builder ─────────────────── */
+export default function CourseSettingsDrawer({ slug, onClose }) {
   const { data: detail, isLoading } = useQuery({
-    queryKey: ["course-admin", course.slug],
-    queryFn:  () => coursesAPI.detail(course.slug).then((r) => r.data),
+    queryKey: ["course-admin", slug],
+    queryFn: () => coursesAPI.detail(slug).then((r) => r.data),
   });
-
-  const createMod = useMutation({
-    mutationFn: (data) => adminAPI.createModule(course.slug, data),
-    onSuccess: () => { qc.invalidateQueries(["course-admin", course.slug]); setAddMod(false); },
-  });
-
-  const togglePublish = useMutation({
-    mutationFn: () => coursesAPI.update(course.slug, {
-      status: detail?.status === "published" ? "draft" : "published",
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries(["admin-courses"]);
-      qc.invalidateQueries(["course-admin", course.slug]);
-    },
-  });
-
-  const isPublished = detail?.status === "published";
-  const modules     = detail?.modules || [];
-
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
   return (
-    <div>
-      {/* Top bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
-        <button className="btn btn-outline btn-sm" onClick={onBack}>← Back</button>
-        <h3 style={{ margin: 0, flex: 1, fontSize: "1rem" }}>{detail?.title || course.title}</h3>
-        <a href={`/learn/${course.slug}`} target="_blank" rel="noopener noreferrer"
-          className="btn btn-outline btn-sm"><Eye size={13} /> Preview</a>
-        <button
-          className="btn btn-sm" onClick={() => togglePublish.mutate()} disabled={togglePublish.isPending}
-          style={{
-            background: isPublished ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.12)",
-            color: isPublished ? "var(--clr-danger)" : "var(--clr-success)",
-          }}>
-          {isPublished ? "Unpublish" : "Publish"}
-        </button>
-        <button className="btn btn-danger btn-sm"
-          onClick={() => { if (confirm(`Delete "${course.title}"? This cannot be undone.`)) delCourse.mutate(); }}
-          disabled={delCourse.isPending}><Trash2 size={13} /></button>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: "0", marginBottom: "1.5rem", borderBottom: "2px solid #F3F4F6" }}>
-        {[
-          { key: "modules", icon: LayoutList, label: "Modules" },
-          { key: "details", icon: Settings, label: "Edit Details" },
-        ].map(({ key, icon: Icon, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            style={{
-              display: "flex", alignItems: "center", gap: "0.4rem",
-              padding: "0.6rem 1.1rem", background: "none", border: "none",
-              borderBottom: tab === key ? "2px solid var(--clr-primary)" : "2px solid transparent",
-              marginBottom: "-2px",
-              color: tab === key ? "var(--clr-primary)" : "#6B7280",
-              fontWeight: tab === key ? 700 : 500, fontSize: "0.875rem",
-              cursor: "pointer", transition: "all 0.15s",
-            }}>
-            <Icon size={15} /> {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      {tab === "details" && !isLoading && detail && (
-        <EditDetailsPanel detail={detail} courseSlug={course.slug} />
-      )}
-
-      {tab === "modules" && (
-        <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
-            <button className="btn btn-primary btn-sm" onClick={() => setAddMod(a => !a)}>
-              <Plus size={13} /> Add Module
-            </button>
-          </div>
-
-          {addMod && (
-            <InlineForm
-              fields={[
-                { name: "title", label: "Module Title", placeholder: "e.g. Introduction" },
-                { name: "order", label: "Order", type: "number", default: modules.length + 1, flex: "0 0 80px" },
-              ]}
-              onSave={createMod.mutate}
-              onCancel={() => setAddMod(false)}
-              saving={createMod.isPending}
-            />
-          )}
-
-          {isLoading && <div className="spinner" style={{ margin: "2rem auto" }} />}
-          {modules.map((m) => <ModuleCard key={m.id} mod={m} />)}
-          {!isLoading && modules.length === 0 && !addMod && (
-            <div style={{ textAlign: "center", padding: "2rem", border: "1px dashed var(--clr-border)", borderRadius: "var(--radius-md)" }}>
-              <p className="text-muted">No modules yet. Click "+ Add Module" to add one.</p>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+    <>
+      <div className="cb-drawer-backdrop" onClick={onClose} />
+      <aside className="cb-drawer" role="dialog" aria-label="Course settings">
+        <div className="cb-drawer-head">
+          <h3>Course settings</h3>
+          <button className="cb-icon-btn" aria-label="Close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="cb-drawer-body">
+          {isLoading || !detail ? <div className="spinner" style={{ margin: "2rem auto" }} /> : <EditDetailsPanel detail={detail} courseSlug={slug} />}
+        </div>
+      </aside>
+    </>
   );
 }
