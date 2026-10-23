@@ -52,6 +52,35 @@ class DrippingService:
 
         return evaluator(rule)
 
+    def lock_info(self, lesson) -> dict:
+        """Explain why a lesson is locked, for display to the student.
+
+        Returns ``{'reason': <criteria_type>, 'message': str, 'unlock_at': iso|None}``.
+        Only meaningful when ``is_unlocked(lesson)`` is False.
+        """
+        rule = getattr(lesson, 'drip_rule', None)
+        if rule is None:
+            return {'reason': 'locked', 'message': 'This lesson is locked.', 'unlock_at': None}
+
+        info = {'reason': rule.criteria_type, 'message': 'This lesson is locked.', 'unlock_at': None}
+        if rule.criteria_type == 'time' and rule.unlock_after_days is not None:
+            unlock_at = self.enrollment.enrolled_at + timedelta(days=rule.unlock_after_days)
+            info['unlock_at'] = unlock_at.isoformat()
+            info['message'] = f'Unlocks on {timezone.localtime(unlock_at):%d %b %Y}.'
+        elif rule.criteria_type == 'completion' and rule.required_lesson:
+            info['message'] = f'Complete "{rule.required_lesson.title}" to unlock this lesson.'
+            info['required_lesson'] = str(rule.required_lesson_id)
+        elif rule.criteria_type == 'quiz_score' and rule.required_quiz:
+            info['message'] = (
+                f'Score at least {rule.required_score}% in "{rule.required_quiz.title}" to unlock.'
+            )
+            info['required_lesson'] = str(rule.required_quiz.lesson_id)
+        elif rule.criteria_type == 'manual':
+            info['message'] = 'Your teacher will unlock this lesson.'
+        elif rule.criteria_type == 'purchase_tier':
+            info['message'] = 'Unlocks once your payment is verified.'
+        return info
+
     def evaluate_and_save(self, lesson) -> bool:
         """Check access and persist result to ContentAccess table."""
         from apps.dripping.models import ContentAccess

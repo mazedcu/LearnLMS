@@ -11,9 +11,9 @@ class ContentBlockSerializer(serializers.ModelSerializer):
             'id', 'lesson', 'block_type', 'order', 'title',
             'html_content', 'is_fullscreen',
             'file', 'h5p_embed_url', 'moodle_resource_id', 'h5p_extracted_path',
-            'h5p_internal_url', 'video_url', 'created_at',
+            'h5p_internal_url', 'video_url', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'created_at', 'h5p_extracted_path', 'h5p_internal_url']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'h5p_extracted_path', 'h5p_internal_url']
 
     def get_h5p_internal_url(self, obj):
         if obj.block_type == 'h5p' and (obj.file or obj.h5p_extracted_path):

@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    QuizListView, StartQuizView, SubmitAnswerView,
+    StartQuizView, SubmitAnswerView,
     FinishQuizView, SubmissionDetailView, RenderedQuestionsView,
     QuizCreateView, QuizDetailView,
     QuestionListCreateView, QuestionDetailView,

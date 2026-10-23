@@ -468,9 +468,19 @@ p  { color: var(--clr-text); }
   .btn { width: 100%; }
   .btn-sm { width: auto; }
   
-  /* Mobile sidebar adjustments */
+  /* Mobile sidebar adjustments: hidden until the menu button opens it */
   .lesson-sidebar {
     display: none;
+    position: relative;
+  }
+  .lesson-sidebar.open {
+    display: block;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    height: calc(100vh - 64px);
+    z-index: 999;
+    box-shadow: var(--shadow-md);
   }
   
   .mobile-sidebar-toggle {

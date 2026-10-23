@@ -93,6 +93,7 @@ export const lessonsAPI = {
   blocks: (id) => api.get(`/content/lessons/${id}/blocks/`),
   complete: (id) => api.post(`/content/lessons/${id}/complete/`),
   dripStatus: (id) => api.get(`/content/lessons/${id}/drip-status/`),
+  courseStatus: (slug) => api.get(`/content/courses/${slug}/lesson-status/`),
 };
 
 export const assessmentsAPI = {
