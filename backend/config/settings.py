@@ -159,6 +159,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# When nginx has an internal /protected-media/ location (deploy/deploy.sh
+# sets it up), video streams are handed to nginx with X-Accel-Redirect so a
+# viewer doesn't tie up one of the few gunicorn workers for the whole video.
+MEDIA_ACCEL_REDIRECT = env.bool("MEDIA_ACCEL_REDIRECT", default=False)
+MEDIA_ACCEL_PREFIX = "/protected-media/"
+
 # ------------------------------------------------------------------ #
 # Email
 # ------------------------------------------------------------------ #

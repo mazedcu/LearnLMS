@@ -114,7 +114,9 @@ cd "$APP/backend"
 [ -x venv/bin/python ] || python3 -m venv venv
 venv/bin/pip install -q --upgrade pip >/dev/null
 venv/bin/pip install -q -r requirements.txt gunicorn
-venv/bin/python manage.py migrate --noinput
+# --fake-initial: tables created before their migration was committed (the
+# video library) are marked as applied instead of failing with "already exists".
+venv/bin/python manage.py migrate --noinput --fake-initial
 venv/bin/python manage.py collectstatic --noinput -v0
 venv/bin/python manage.py check
 ok "backend ready"
@@ -143,15 +145,32 @@ if [ -f "$NGINX_SITE" ]; then
   if ! grep -q 'proxy_read_timeout' "$NGINX_SITE"; then
     sed -i "/proxy_pass http:\/\/127.0.0.1:${APP_PORT};/a\        proxy_read_timeout 600s;\n        proxy_send_timeout 600s;" "$NGINX_SITE"; changed=1
   fi
+  # Internal location nginx uses to serve video-library streams for the app
+  # (X-Accel-Redirect), so viewers don't hold gunicorn workers.
+  if ! grep -q 'location /protected-media/' "$NGINX_SITE" && grep -qE '^\s*location /media/' "$NGINX_SITE"; then
+    sed -i -E "/^\s*location \/media\/ \{/i\    location /protected-media/ {\n        internal;\n        alias ${APP}/backend/media/;\n    }\n" "$NGINX_SITE"; changed=1
+  fi
+  nginx_ok=1
   if [ "$changed" = 1 ]; then
     if nginx -t >/dev/null 2>&1; then
-      systemctl reload nginx && ok "nginx: uploads up to 2 GB, 10-minute timeouts"
+      systemctl reload nginx && ok "nginx: 2 GB uploads, 10-minute timeouts, fast video streaming"
     else
+      nginx_ok=0
       cp -a "$BACKUP/nginx-site.conf" "$NGINX_SITE"
       warn "nginx rejected the change, restored the previous config:"; nginx -t || true
     fi
   else
     ok "nginx already configured"
+  fi
+  # Turn the app's nginx hand-off on only when nginx has the location
+  if [ -f "$ENV_FILE" ]; then
+    sed -i '/^MEDIA_ACCEL_REDIRECT=/d' "$ENV_FILE"
+    if [ "$nginx_ok" = 1 ] && grep -q 'location /protected-media/' "$NGINX_SITE"; then
+      echo "MEDIA_ACCEL_REDIRECT=True" >> "$ENV_FILE"
+      ok "video streams served by nginx"
+    else
+      warn "video streams stay on the app (nginx location missing)"
+    fi
   fi
 else
   warn "No nginx site at $NGINX_SITE — skipped (set NGINX_SITE=... and re-run)"

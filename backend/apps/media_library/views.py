@@ -4,6 +4,9 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.http import StreamingHttpResponse, Http404, HttpResponse
 import os
+from urllib.parse import quote
+
+from django.conf import settings
 
 from .models import VideoLibrary
 from .serializers import VideoLibrarySerializer
@@ -16,10 +19,25 @@ def _stream_video(request, video):
     if not os.path.exists(file_path):
         raise Http404("File not found.")
 
+    if getattr(settings, "MEDIA_ACCEL_REDIRECT", False):
+        # nginx serves the bytes (with range support); this worker is freed at once.
+        response = HttpResponse()
+        response["X-Accel-Redirect"] = settings.MEDIA_ACCEL_PREFIX + quote(video.file.name)
+        response["Content-Type"] = _content_type(file_path)
+        response["Content-Disposition"] = "inline"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+
     file_size = os.path.getsize(file_path)
     range_header = request.META.get("HTTP_RANGE", "").strip()
 
-    # Detect content type
+    content_type = _content_type(file_path)
+    return _python_stream(request, file_path, file_size, range_header, content_type)
+
+
+def _content_type(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     mime_map = {
         ".mp4": "video/mp4",   ".webm": "video/webm",
@@ -30,7 +48,11 @@ def _stream_video(request, video):
         ".m4a": "audio/mp4",   ".opus": "audio/opus",
         ".weba": "audio/webm",
     }
-    content_type = mime_map.get(ext, "application/octet-stream")
+    return mime_map.get(ext, "application/octet-stream")
+
+
+def _python_stream(request, file_path, file_size, range_header, content_type):
+    """Fallback for development (no nginx): stream from Python."""
 
     def _add_no_download_headers(response):
         """Prevent browsers from offering a Save/Download option."""
