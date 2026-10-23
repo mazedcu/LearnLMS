@@ -5,28 +5,28 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.courses.models import Lesson, Enrollment
-from apps.common.permissions import IsAdmin
+from apps.common.permissions import IsAdmin, IsInstructorOrAdmin
 from .models import DrippingRule, ContentAccess
 from .serializers import DrippingRuleSerializer, ContentAccessSerializer
 from .services import DrippingService
 
 
-class DrippingRuleView(generics.RetrieveUpdateAPIView):
-    """GET/PATCH the dripping rule for a specific lesson."""
+class DrippingRuleView(generics.RetrieveUpdateDestroyAPIView):
+    """GET/PATCH/DELETE the dripping rule for a specific lesson."""
     queryset = DrippingRule.objects.all()
     serializer_class = DrippingRuleSerializer
     lookup_field = 'lesson__id'
     lookup_url_kwarg = 'lesson_pk'
 
     def get_permissions(self):
-        if self.request.method in ('PUT', 'PATCH'):
-            return [IsAdmin()]
+        if self.request.method in ('PUT', 'PATCH', 'DELETE'):
+            return [IsInstructorOrAdmin()]
         return [permissions.IsAuthenticated()]
 
 
 class DrippingRuleCreateView(generics.CreateAPIView):
     serializer_class = DrippingRuleSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsInstructorOrAdmin]
 
 
 class ManualUnlockView(APIView):

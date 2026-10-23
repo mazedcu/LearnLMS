@@ -22,11 +22,20 @@ class LessonSerializer(serializers.ModelSerializer):
 
 
 class ModuleSerializer(serializers.ModelSerializer):
-    lessons = LessonSerializer(many=True, read_only=True)
+    lessons = serializers.SerializerMethodField()
 
     class Meta:
         model = Module
         fields = ['id', 'title', 'description', 'order', 'lessons']
+
+    def get_lessons(self, obj):
+        lessons = obj.lessons.all()  # uses prefetch when present
+        request = self.context.get('request')
+        from apps.common.access import is_course_staff
+        user = getattr(request, 'user', None)
+        if not (user and is_course_staff(user, obj.course)):
+            lessons = [l for l in lessons if l.is_published]
+        return LessonSerializer(lessons, many=True, context=self.context).data
 
 
 class CourseListSerializer(serializers.ModelSerializer):
@@ -90,13 +99,15 @@ class CourseWriteSerializer(serializers.ModelSerializer):
 class ModuleWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
-        fields = ['title', 'description', 'order']
+        fields = ['id', 'title', 'description', 'order']
+        read_only_fields = ['id']
 
 
 class LessonWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
-        fields = ['title', 'order', 'is_published', 'is_preview', 'estimated_duration_mins']
+        fields = ['id', 'title', 'order', 'is_published', 'is_preview', 'estimated_duration_mins']
+        read_only_fields = ['id']
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):

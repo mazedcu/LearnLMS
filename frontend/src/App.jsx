@@ -16,6 +16,7 @@ const InstructorDashboard = lazy(() => import('./pages/dashboard/InstructorDashb
 const AdminDashboard      = lazy(() => import('./pages/dashboard/AdminDashboard'));
 const ManagerDashboard    = lazy(() => import('./pages/dashboard/ManagerDashboard'));
 const CertVerify          = lazy(() => import('./pages/CertVerify'));
+const CourseBuilder       = lazy(() => import('./pages/CourseBuilder'));
 const Unauthorized        = lazy(() => import('./pages/Unauthorized'));
 
 const queryClient = new QueryClient({
@@ -46,6 +47,8 @@ export default function App() {
               <Route path="/dashboard/student" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/instructor" element={<ProtectedRoute roles={['instructor','admin']}><InstructorDashboard /></ProtectedRoute>} />
               <Route path="/dashboard/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/admin/courses/:slug" element={<ProtectedRoute roles={['admin','instructor']}><CourseBuilder /></ProtectedRoute>} />
+              <Route path="/dashboard/admin/courses/:slug/:lessonId" element={<ProtectedRoute roles={['admin','instructor']}><CourseBuilder /></ProtectedRoute>} />
               <Route path="/dashboard/manager" element={<ProtectedRoute roles={['manager','admin']}><ManagerDashboard /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
