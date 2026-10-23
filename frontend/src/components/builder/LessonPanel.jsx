@@ -239,7 +239,8 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
       setUploads((u) => [...u, { key, name: file.name, type, progress: 0 }]);
       const fd = new FormData();
       fd.append("block_type", type);
-      fd.append("title", titleFromFile(file));
+      // H5P packages carry their own activity title; the server uses it
+      if (type !== "h5p") fd.append("title", titleFromFile(file));
       fd.append("file", file);
       builderAPI.createBlock(lesson.id, fd, (p) => setUploads((u) => u.map((x) => (x.key === key ? { ...x, progress: p } : x))))
         .then(() => { setUploads((u) => u.filter((x) => x.key !== key)); refreshBlocks(); })
@@ -375,7 +376,7 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
                 <div className="cb-block-body">
                   <div className="cb-block-title">{u.name}</div>
                   {u.error ? (
-                    <div className="cb-block-sub" style={{ color: "var(--clr-danger)" }}>{u.error}</div>
+                    <div className="cb-block-sub" style={{ color: "var(--clr-danger)", whiteSpace: "normal" }}>{u.error}</div>
                   ) : (
                     <>
                       <div className="cb-block-sub">Uploading… {u.progress}%</div>

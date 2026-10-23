@@ -40,11 +40,13 @@ export default function Navbar() {
           onClick={() => setMenuOpen(!menuOpen)}
           style={{ display: 'none', padding: '0.5rem', color: 'var(--clr-heading)' }}
           className="mobile-menu-btn"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
 
-        <div className="navbar-nav">
+        <div className={`navbar-nav${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)}>
           <Link to="/" className={`nav-link ${isActive('/')}`}>Courses</Link>
 
           {user ? (

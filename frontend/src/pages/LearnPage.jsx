@@ -226,31 +226,6 @@ export default function LearnPage() {
     <div className="page" style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       <Navbar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Mobile sidebar toggle */}
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          style={{
-            position: "fixed",
-            top: "70px",
-            left: "1rem",
-            zIndex: 1000,
-            background: "var(--clr-primary)",
-            color: "#fff",
-            border: "none",
-            borderRadius: "50%",
-            width: "44px",
-            height: "44px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "var(--shadow-md)",
-            cursor: "pointer",
-          }}
-          className="mobile-sidebar-toggle"
-        >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div 
@@ -275,6 +250,10 @@ export default function LearnPage() {
           status={status}
         />
         <main style={{ flex: 1, overflowY: "auto", padding: "2rem" }}>
+          <button className="learn-lessons-btn" onClick={() => setSidebarOpen(true)} aria-label="Show lessons">
+            <Menu size={16} /> Lessons
+            {status?.enrolled && <span className="text-muted" style={{ fontWeight: 500, fontSize: "0.78rem" }}>· {Math.round(status.percent_complete || 0)}%</span>}
+          </button>
           {currentLesson && (
             <>
               <div style={{ marginBottom: "1.5rem" }}>
@@ -316,7 +295,7 @@ export default function LearnPage() {
 
                   <NativeQuizBlock lessonId={currentId} slug={slug} />
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--clr-border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--clr-border)" }}>
                     {user ? (
                       (isCompleted || completeMutation.isSuccess) ? (
                         <span className="badge badge-success" style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", padding: "0.5rem 0.875rem" }}>

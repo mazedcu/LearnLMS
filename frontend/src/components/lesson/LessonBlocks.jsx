@@ -9,19 +9,14 @@ import SecureVideoPlayer from "../SecureVideoPlayer";
 
 // ── HTML Block ─────────────────────────────────────────────────────────────
 export function HTMLBlock({ block }) {
-  const [fs, setFs] = useState(false);
-  const ref = useRef(null);
-
-  const toggleFs = () => {
-    if (!fs) { ref.current?.requestFullscreen?.(); setFs(true); }
-    else { document.exitFullscreen?.(); setFs(false); }
-  };
+  const frameRef = useRef(null);
+  const [fs, toggleFs, fsSupported] = useFullscreen(frameRef);
 
   const rawSrc = block.file;
   let src = rawSrc && rawSrc.startsWith('http')
     ? new URL(rawSrc).pathname
     : rawSrc;
-    
+
   if (src) {
     const version = block.updated_at || block.created_at;
     if (version) src = src + (src.includes("?") ? "&" : "?") + "v=" + encodeURIComponent(version);
@@ -36,134 +31,175 @@ export function HTMLBlock({ block }) {
     : "allow-same-origin allow-scripts allow-presentation";
 
   return (
-    <div style={{ position: "relative", border: "1px solid var(--clr-border)", borderRadius: "var(--radius-md)", overflow: "hidden", marginBottom: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.625rem 1rem", background: "var(--clr-surface)", borderBottom: "1px solid var(--clr-border)" }}>
-        <span style={{ fontSize: "0.8rem", color: "var(--clr-muted)" }}>{block.title || (src ? "HTML File" : "HTML Content")}</span>
-        <button onClick={toggleFs} className="btn btn-sm btn-outline" title={fs ? "Exit Fullscreen" : "Fullscreen"}>
-          {fs ? <Minimize size={14} /> : <Maximize size={14} />} {fs ? "Exit" : "Fullscreen"}
-        </button>
-      </div>
-      <div ref={ref} style={{ background: "#fff", color: "#000", height: fs ? "100vh" : "auto" }}>
+    <BlockFrame frameRef={frameRef} title={block.title || (src ? "HTML page" : "Notes")} isFs={fs} onToggleFs={toggleFs} fsSupported={fsSupported}>
+      <div className="lesson-block-body">
         {src ? (
           <iframe
             src={src}
             sandbox={sandbox}
-            style={{ width: "100%", height: fs ? "100vh" : "600px", border: "none", display: "block" }}
+            title={block.title || "HTML page"}
+            className="lesson-block-embed"
+            style={{ height: fs ? "calc(100vh - 52px)" : "600px" }}
             loading="lazy"
           />
         ) : (
           <iframe
             srcDoc={srcDoc}
             sandbox={sandbox}
-            style={{ width: "100%", height: fs ? "100vh" : "600px", border: "none", display: "block" }}
+            title={block.title || "Notes"}
+            className="lesson-block-embed"
+            style={{ height: fs ? "calc(100vh - 52px)" : "600px" }}
             loading="lazy"
             onLoad={e => {
-              if (!fs) {
-                try { e.target.style.height = e.target.contentDocument.body.scrollHeight + 40 + "px"; } catch {}
-              }
+              try { e.target.style.height = e.target.contentDocument.body.scrollHeight + 40 + "px"; } catch {}
             }}
           />
         )}
       </div>
+    </BlockFrame>
+  );
+}
+
+// ── Fullscreen helper ──────────────────────────────────────────────────────
+// Tracks real fullscreen state, so pressing Esc also resets the button.
+function useFullscreen(ref) {
+  const [isFs, setIsFs] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFs(document.fullscreenElement === ref.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, [ref]);
+  const toggle = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else ref.current?.requestFullscreen?.().catch(() => {});
+  };
+  const supported = typeof document !== "undefined" && !!document.fullscreenEnabled;
+  return [isFs, toggle, supported];
+}
+
+function BlockFrame({ frameRef, title, label, isFs, onToggleFs, fsSupported, children }) {
+  return (
+    <div ref={frameRef} className={`lesson-block${isFs ? " is-fullscreen" : ""}`}>
+      <div className="lesson-block-head">
+        <span className="lesson-block-title">
+          {label && <span className="lesson-block-label">{label}</span>}
+          {title}
+        </span>
+        {fsSupported && (
+          <button onClick={onToggleFs} className="btn btn-sm btn-outline" title={isFs ? "Exit fullscreen" : "Fullscreen"}>
+            {isFs ? <Minimize size={14} /> : <Maximize size={14} />} {isFs ? "Exit" : "Fullscreen"}
+          </button>
+        )}
+      </div>
+      {children}
     </div>
   );
 }
 
 // ── H5P Block ──────────────────────────────────────────────────────────────
+// Uploaded .h5p packages are unpacked on the server and played here with
+// h5p-standalone. The player sizes its frame to the activity, so short
+// activities stay short and long ones aren't cut off.
 export function H5PBlock({ block }) {
+  const frameRef = useRef(null);
   const containerRef = useRef(null);
-  const h5pInstanceRef = useRef(null);
+  const [isFs, toggleFs, fsSupported] = useFullscreen(frameRef);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Determine the H5P content path
   const h5pPath = block.h5p_extracted_path;
   const embedUrl = block.h5p_embed_url || (block.moodle_resource_id
     ? `https://campus.rawdatun.org/mod/hvp/embed.php?id=${block.moodle_resource_id}`
     : null);
+  const version = block.updated_at || block.created_at || "";
+
+  // Ask H5P to re-measure itself (after fullscreen or width changes)
+  const resizeH5P = () => {
+    const frame = containerRef.current?.querySelector("iframe");
+    try {
+      const H5P = frame?.contentWindow?.H5P;
+      (H5P?.instances || []).forEach((inst) => H5P.trigger(inst, "resize"));
+    } catch { /* frame not ready */ }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    // If using extracted local H5P content
-    if (h5pPath && containerRef.current) {
-      setLoading(true);
-      setError(null);
-      // Clear previous instance
-      containerRef.current.innerHTML = '';
-      h5pInstanceRef.current = null;
+    if (!h5pPath || !containerRef.current) { setLoading(false); return; }
+    let cancelled = false;
+    const el = containerRef.current;
+    el.innerHTML = "";
+    setLoading(true);
+    setError(null);
 
-      import('h5p-standalone').then(({ H5P }) => {
-        if (!isMounted || !containerRef.current) return;
-        new H5P(containerRef.current, {
+    import("h5p-standalone")
+      .then(({ H5P }) => {
+        if (cancelled) return;
+        return new H5P(el, {
           h5pJsonPath: `/media/${h5pPath}`,
-          frameJs: '/h5p-standalone/frame.bundle.js',
-          frameCss: '/h5p-standalone/styles/h5p.css',
-        })
-          .then(() => {
-            if (!isMounted) return;
-            h5pInstanceRef.current = true;
-            setLoading(false);
-          })
-          .catch((err) => {
-            if (!isMounted) return;
-            console.error('H5P render error:', err);
-            setError(err.message || 'Failed to render H5P content');
-            setLoading(false);
-          });
-      }).catch((err) => {
-        if (!isMounted) return;
-        console.error('H5P import error:', err);
-        setError('Failed to load H5P player library');
+          frameJs: "/h5p-standalone/frame.bundle.js",
+          frameCss: "/h5p-standalone/styles/h5p.css",
+          frame: false,      // no "Reuse / Embed / Rights" bar
+          copyright: false,
+          export: false,
+          embed: false,
+        });
+      })
+      .then(() => { if (!cancelled) { setLoading(false); setTimeout(resizeH5P, 300); } })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("H5P render error:", err);
+        setError(err?.message || "unknown error");
         setLoading(false);
       });
-    } else if (!h5pPath && !embedUrl) {
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [h5pPath, block.id]);
 
-  // Fallback: embed URL (Moodle or external)
+    // Keep the activity sized to the available width
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => resizeH5P()) : null;
+    ro?.observe(el);
+
+    return () => { cancelled = true; ro?.disconnect(); el.innerHTML = ""; };
+  }, [h5pPath, block.id, version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { setTimeout(resizeH5P, 150); }, [isFs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const title = block.title || "Interactive activity";
+
+  // Embedded from another site (e.g. Moodle): we can't measure it, so give it room
   if (!h5pPath && embedUrl) {
     return (
-      <div className="h5p-container">
-        {block.title && <p style={{ padding: "0.75rem 1rem", background: "var(--clr-surface)", borderBottom: "1px solid var(--clr-border)", fontSize: "0.875rem", fontWeight: 600 }}>{block.title}</p>}
-        <iframe 
-          src={embedUrl} 
-          allowFullScreen 
-          title={block.title || "H5P Activity"} 
-          style={{ width: "100%", minHeight: "480px", border: "none" }}
+      <BlockFrame frameRef={frameRef} title={title} label="H5P" isFs={isFs} onToggleFs={toggleFs} fsSupported={fsSupported}>
+        <iframe
+          src={embedUrl}
+          allowFullScreen
+          allow="fullscreen; autoplay"
+          title={title}
+          className="lesson-block-embed"
+          style={{ height: isFs ? "calc(100vh - 52px)" : "560px" }}
           loading="lazy"
         />
-      </div>
+      </BlockFrame>
     );
   }
 
-  // No content at all
-  if (!h5pPath && !embedUrl) {
-    return <div className="alert alert-info">H5P activity not configured.</div>;
+  if (!h5pPath) {
+    return <div className="alert alert-info">This interactive activity hasn't been set up yet.</div>;
   }
 
-  // Local H5P rendering
   return (
-    <div className="h5p-container">
-      {block.title && <p style={{ padding: "0.75rem 1rem", background: "var(--clr-surface)", borderBottom: "1px solid var(--clr-border)", fontSize: "0.875rem", fontWeight: 600 }}>{block.title}</p>}
-      {loading && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "200px", color: "var(--clr-muted)" }}>
-          <div className="spinner" style={{ marginRight: "0.75rem" }} /> Loading H5P content…
-        </div>
-      )}
-      {error && (
-        <div style={{ padding: "2rem", textAlign: "center", color: "var(--clr-danger, #c0392b)" }}>
-          Failed to load H5P content: {error}
-        </div>
-      )}
-      <div ref={containerRef} style={{ minHeight: loading ? 0 : "400px" }} />
-    </div>
+    <BlockFrame frameRef={frameRef} title={title} label="H5P" isFs={isFs} onToggleFs={toggleFs} fsSupported={fsSupported}>
+      <div className="lesson-block-body h5p-body">
+        {loading && (
+          <div className="h5p-loading">
+            <div className="spinner" /> Loading activity…
+          </div>
+        )}
+        {error && (
+          <div className="h5p-error">
+            <strong>This activity couldn't be loaded.</strong>
+            <span>Please refresh the page. If it keeps happening, let your teacher know.</span>
+          </div>
+        )}
+        <div ref={containerRef} className="h5p-mount" aria-busy={loading} />
+      </div>
+    </BlockFrame>
   );
 }
 

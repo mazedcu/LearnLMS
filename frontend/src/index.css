@@ -419,11 +419,6 @@ p  { color: var(--clr-text); }
     object-fit: contain;
   }
   
-  /* Mobile H5P adjustments */
-  .h5p-container iframe {
-    min-height: 300px !important;
-  }
-  
   /* Mobile grid adjustments for media library */
   .grid-2, .grid-3, .grid-4 {
     gap: 1rem !important;
@@ -663,12 +658,72 @@ p  { color: var(--clr-text); }
 /* ═══════════════════════════════════════════════
    H5P IFRAME
 ═══════════════════════════════════════════════ */
-.h5p-container {
-  position: relative; width: 100%; border-radius: var(--radius-lg);
-  overflow: hidden; background: #F9FAFB;
-  box-shadow: var(--shadow-md); border: 1px solid var(--clr-border);
+/* Lesson content frame (HTML pages, H5P) — shared header + fullscreen */
+.lesson-block {
+  position: relative; border: 1px solid var(--clr-border); border-radius: var(--radius-md);
+  overflow: hidden; background: #fff;
 }
-.h5p-container iframe { width: 100%; min-height: 480px; border: none; display: block; }
+.lesson-block-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  padding: 0.55rem 0.75rem 0.55rem 1rem; background: var(--clr-surface); border-bottom: 1px solid var(--clr-border);
+}
+.lesson-block-title {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0;
+  font-size: 0.85rem; font-weight: 600; color: var(--clr-heading);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lesson-block-label {
+  flex-shrink: 0; padding: 0.05rem 0.4rem; border-radius: 4px;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(14,165,233,0.1); color: #0284C7;
+}
+.lesson-block-head .btn { flex-shrink: 0; }
+.lesson-block-body { background: #fff; color: #111; }
+.lesson-block-embed { display: block; width: 100%; border: none; }
+.lesson-block.is-fullscreen { border-radius: 0; border: none; display: flex; flex-direction: column; height: 100vh; }
+.lesson-block.is-fullscreen .lesson-block-body { flex: 1; overflow: auto; }
+
+/* H5P activities played from uploaded .h5p packages */
+.h5p-body { padding: 1rem 1.25rem 1.25rem; }
+.lesson-block.is-fullscreen .h5p-body { padding: 1.5rem max(1.5rem, calc((100vw - 1000px) / 2)); }
+.h5p-mount iframe.h5p-iframe { display: block; width: 100%; border: none; }
+.h5p-loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; min-height: 160px; color: var(--clr-muted); font-size: 0.875rem; }
+.h5p-loading .spinner { width: 22px; height: 22px; border-width: 2px; }
+.h5p-error { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem; text-align: center; color: var(--clr-text); font-size: 0.875rem; }
+.h5p-error strong { color: var(--clr-danger); }
+@media (max-width: 640px) {
+  .h5p-body { padding: 0.75rem; }
+}
+
+/* Older embeds that still use the .h5p-container wrapper */
+.h5p-container { position: relative; width: 100%; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--clr-border); }
+.h5p-container iframe { width: 100%; border: none; display: block; }
+
+/* Navbar on phones: links fold into a menu */
+.mobile-menu-btn { background: none; border: none; cursor: pointer; border-radius: var(--radius-sm); }
+@media (max-width: 640px) {
+  .navbar-inner { position: relative; }
+  .mobile-menu-btn { display: inline-flex !important; align-items: center; }
+  .navbar .navbar-nav {
+    display: none; position: absolute; top: calc(100% + 1px); left: -1rem; right: -1rem; z-index: 1100;
+    flex-direction: column; align-items: stretch; gap: 0.25rem;
+    padding: 0.75rem 1rem 1rem; background: var(--clr-surface);
+    border-bottom: 1px solid var(--clr-border); box-shadow: var(--shadow-lg);
+  }
+  .navbar .navbar-nav.open { display: flex; }
+  .navbar .navbar-nav .nav-link { padding: 0.6rem 0.25rem; }
+  .navbar .navbar-nav .btn { width: 100%; justify-content: center; }
+}
+
+/* Learn page: lesson list button on phones sits in the page flow */
+.learn-lessons-btn { display: none; }
+@media (max-width: 768px) {
+  .learn-lessons-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;
+    padding: 0.5rem 0.85rem; border-radius: 999px; border: 1px solid var(--clr-border);
+    background: var(--clr-surface); color: var(--clr-heading); font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+}
 
 /* ═══════════════════════════════════════════════
    QUIZ QUESTION CARD

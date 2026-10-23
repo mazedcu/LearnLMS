@@ -83,7 +83,7 @@ export default function BlockForm({ type, block, initialFile, onSubmit, onCancel
     return "upload";
   };
   const [source, setSource] = useState(initialSource);
-  const [title, setTitle] = useState(block?.title || (initialFile ? titleFromFile(initialFile) : ""));
+  const [title, setTitle] = useState(block?.title || (initialFile && type !== "h5p" ? titleFromFile(initialFile) : ""));
   const [file, setFile] = useState(initialFile || null);
   const [html, setHtml] = useState(block?.html_content || "");
   const [link, setLink] = useState(type === "h5p" ? block?.h5p_embed_url || "" : block?.video_url || "");
@@ -134,12 +134,13 @@ export default function BlockForm({ type, block, initialFile, onSubmit, onCancel
 
       <div className="cb-field">
         <label htmlFor="cb-block-title">Title <span className="text-muted" style={{ fontWeight: 400 }}>(shown to students)</span></label>
-        <input id="cb-block-title" className="cb-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`e.g. ${BLOCK_META[type].label} — Introduction`} />
+        <input id="cb-block-title" className="cb-input" value={title} onChange={(e) => setTitle(e.target.value)}
+          placeholder={type === "h5p" && source === "upload" ? "Leave blank to use the activity's own title" : `e.g. ${BLOCK_META[type].label} — Introduction`} />
       </div>
 
       {source === "upload" && (
         <FilePicker type={type} file={file} existing={isEdit ? block.file : null}
-          onFile={(f) => { setFile(f); if (f && !title) setTitle(titleFromFile(f)); }} />
+          onFile={(f) => { setFile(f); if (f && !title && type !== "h5p") setTitle(titleFromFile(f)); }} />
       )}
 
       {source === "paste" && (

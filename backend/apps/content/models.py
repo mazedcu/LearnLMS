@@ -47,31 +47,32 @@ class ContentBlock(models.Model):
         return f'{self.lesson.title} — {self.block_type} (#{self.order})'
 
     def save(self, *args, **kwargs):
+        # Did the uploaded file change? (new block, replaced or removed file)
+        old_file = None
+        if self.pk:
+            old_file = (
+                ContentBlock.objects.filter(pk=self.pk).values_list('file', flat=True).first()
+            )
+        file_changed = (old_file or '') != (self.file.name if self.file else '')
         super().save(*args, **kwargs)
-        # Extract H5P file if uploaded
-        if self.block_type == 'h5p' and self.file and not self.h5p_extracted_path:
+
+        if self.block_type != 'h5p':
+            return
+        if self.file and (file_changed or not self.h5p_extracted_path):
             self._extract_h5p()
+        elif not self.file and self.h5p_extracted_path:
+            # Switched to an embed link: drop the old unpacked package
+            from .h5p import remove_extracted
+            remove_extracted(self.id)
+            self.h5p_extracted_path = ''
+            super().save(update_fields=['h5p_extracted_path'])
 
     def _extract_h5p(self):
-        """Extract .h5p file to media directory for serving."""
-        if not self.file:
-            return
-
+        """Unpack the .h5p file so the student page can play it."""
+        from .h5p import extract_package
         try:
-            # Create extraction directory
-            extract_dir = os.path.join(settings.MEDIA_ROOT, 'h5p_extracted', str(self.id))
-            os.makedirs(extract_dir, exist_ok=True)
-
-            # Extract the ZIP file
-            with zipfile.ZipFile(self.file.path, 'r') as zip_ref:
-                zip_ref.extractall(extract_dir)
-
-            # Store relative path
-            self.h5p_extracted_path = f'h5p_extracted/{self.id}'
-            # Save without triggering another extraction
+            self.h5p_extracted_path = extract_package(self)
             super().save(update_fields=['h5p_extracted_path'])
-        except Exception as e:
-            # Log error but don't fail the save
+        except Exception:
             import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to extract H5P file for block {self.id}: {e}")
+            logging.getLogger(__name__).exception("Failed to extract H5P file for block %s", self.id)
