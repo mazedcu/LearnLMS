@@ -1,11 +1,20 @@
-import requests
-import json
+import os
 
-token = "2e72a76614f41d268c0acc1134ccbe5b"
-base_url = "https://campus.rawdatun.org"
+import requests
+
+# Read from the environment (or backend/.env) — never commit the token.
+try:
+    import environ
+    environ.Env.read_env(os.path.join(os.path.dirname(__file__), ".env"))
+except Exception:
+    pass
+token = os.environ.get("MOODLE_SERVICE_TOKEN", "")
+base_url = os.environ.get("MOODLE_BASE_URL", "https://campus.rawdatun.org")
 endpoint = f"{base_url}/webservice/rest/server.php"
 
 def test_api():
+    if not token:
+        raise SystemExit("Set MOODLE_SERVICE_TOKEN in backend/.env first.")
     params = {
         "wstoken": token,
         "wsfunction": "core_webservice_get_site_info",

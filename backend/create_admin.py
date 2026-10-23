@@ -1,9 +1,11 @@
 """
-Run this script to create/reset a superuser.
+Create or reset the admin account. Asks for the password (never stored here).
 Usage:  cd backend
-        .\venv\Scripts\activate
+        source venv/bin/activate      (Windows: .\venv\Scripts\activate)
         python create_admin.py
+Optional: ADMIN_EMAIL / ADMIN_USERNAME environment variables.
 """
+import getpass
 import os
 import django
 
@@ -12,9 +14,11 @@ django.setup()
 
 from apps.accounts.models import CustomUser, UserRole
 
-EMAIL = 'mazedcu@gmail.com'
-PASSWORD = '114598Maryamamarmae'
-USERNAME = 'mazedcu'
+EMAIL = os.environ.get('ADMIN_EMAIL') or input('Admin email: ').strip()
+USERNAME = os.environ.get('ADMIN_USERNAME') or EMAIL.split('@')[0]
+PASSWORD = getpass.getpass('New admin password: ')
+if len(PASSWORD) < 10 or PASSWORD != getpass.getpass('Repeat password: '):
+    raise SystemExit('Passwords must match and be at least 10 characters.')
 
 user, created = CustomUser.objects.get_or_create(
     email=EMAIL,
@@ -43,5 +47,4 @@ print(f"\n{'='*40}")
 print(f"  Superuser {status} Successfully!")
 print(f"{'='*40}")
 print(f"  Email:    {EMAIL}")
-print(f"  Password: {PASSWORD}")
 print(f"{'='*40}\n")
