@@ -50,3 +50,31 @@ class Order(models.Model):
 
     def __str__(self):
         return f'Order {self.id} — {self.student.email} → {self.course.title} ({self.status})'
+
+
+class PaymentSettings(models.Model):
+    """Single row holding the numbers students pay to. Edited from the admin
+    dashboard (Payments → Payment numbers)."""
+    bkash_number = models.CharField(max_length=20, blank=True, default='01676885195')
+    nagad_number = models.CharField(max_length=20, blank=True, default='01676885195')
+    instructions = models.TextField(
+        blank=True,
+        default='Use "Send Money" to the number above, then enter the Transaction ID below.',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Payment settings'
+        verbose_name_plural = 'Payment settings'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1  # only ever one row
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return 'Payment settings'

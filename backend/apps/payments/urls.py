@@ -1,12 +1,13 @@
 from django.urls import path
 from .views import (
     CreateOrderView, OrderDetailView, SubmitReferenceView,
-    VerifyOrderView, PendingOrdersView, MyOrdersView,
+    VerifyOrderView, PendingOrdersView, MyOrdersView, PaymentSettingsView,
 )
 
 app_name = 'payments'
 
 urlpatterns = [
+    path('settings/', PaymentSettingsView.as_view(), name='payment-settings'),
     path('orders/', CreateOrderView.as_view(), name='create-order'),
     path('orders/pending/', PendingOrdersView.as_view(), name='pending-orders'),
     path('orders/my/', MyOrdersView.as_view(), name='my-orders'),

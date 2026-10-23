@@ -6,8 +6,6 @@ import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { CheckCircle, CreditCard, UserPlus } from "lucide-react";
 
-const BKASH_NUMBER  = "01XXXXXXXXX";
-const NAGAD_NUMBER  = "01XXXXXXXXX";
 
 export default function CheckoutPage() {
   const { slug } = useParams();
@@ -20,6 +18,13 @@ export default function CheckoutPage() {
   const { data: course } = useQuery({
     queryKey: ["course", slug],
     queryFn: () => coursesAPI.detail(slug).then(r => r.data),
+  });
+
+  // Payment numbers are set by the admin (Payments → Payment numbers)
+  const { data: paySettings } = useQuery({
+    queryKey: ["payment-settings"],
+    queryFn: () => paymentsAPI.settings().then(r => r.data),
+    staleTime: 60000,
   });
 
   const [orderId, setOrderId] = useState(passedOrderId || null);
@@ -76,7 +81,7 @@ export default function CheckoutPage() {
 
   if (!course) return <><Navbar /><div className="loading-screen"><div className="spinner" /></div></>;
 
-  const payNumber = method === "bkash" ? BKASH_NUMBER : NAGAD_NUMBER;
+  const payNumber = method === "bkash" ? paySettings?.bkash_number : paySettings?.nagad_number;
 
   return (
     <div className="page">
@@ -90,7 +95,7 @@ export default function CheckoutPage() {
             <CheckCircle size={48} color="var(--clr-success)" style={{ margin: "0 auto 1rem" }} />
             <h3 style={{ marginBottom: "0.75rem" }}>Reference Submitted!</h3>
             <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-              Our admin will verify your payment within 24 hours. You will receive a confirmation email once approved.
+              We'll check your payment, usually within 24 hours. The course appears in your dashboard as soon as it's approved.
             </p>
             <button className="btn btn-primary" onClick={() => navigate("/dashboard/student")}>Go to Dashboard</button>
           </div>
@@ -111,7 +116,7 @@ export default function CheckoutPage() {
               <div style={{ display: "flex", gap: "1rem" }}>
                 {["bkash", "nagad"].map(m => (
                   <button key={m} onClick={() => setMethod(m)} className="btn" style={{ flex: 1, justifyContent: "center", border: `2px solid ${method === m ? "var(--clr-primary)" : "var(--clr-border)"}`, background: method === m ? "rgba(108,99,255,0.1)" : "transparent", color: "var(--clr-text)", fontWeight: 600, textTransform: "capitalize" }}>
-                    {m}
+                    {m === "bkash" ? "bKash" : "Nagad"}
                   </button>
                 ))}
               </div>
@@ -120,9 +125,15 @@ export default function CheckoutPage() {
             <div className="glass" style={{ padding: "1.75rem", marginBottom: "1.5rem" }}>
               <h4 style={{ marginBottom: "0.75rem" }}>2. Send Payment</h4>
               <div style={{ background: "var(--clr-surface)", borderRadius: "var(--radius-sm)", padding: "1rem", marginBottom: "0.75rem" }}>
-                <p className="text-muted" style={{ fontSize: "0.8rem", marginBottom: "0.25rem" }}>Send BDT {course.price} to this {method} number:</p>
-                <p style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--clr-heading)", letterSpacing: "1px" }}>{payNumber}</p>
-                <p className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>Use "Send Money" option</p>
+                <p className="text-muted" style={{ fontSize: "0.8rem", marginBottom: "0.25rem" }}>Send BDT {course.price} to this {method === "bkash" ? "bKash" : "Nagad"} number:</p>
+                <p style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--clr-heading)", letterSpacing: "1px", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {payNumber || (paySettings ? "Not set up yet — please contact us" : "…")}
+                  {payNumber && (
+                    <button type="button" className="btn btn-outline btn-sm" style={{ letterSpacing: 0 }}
+                      onClick={() => navigator.clipboard?.writeText(payNumber)}>Copy</button>
+                  )}
+                </p>
+                <p className="text-muted" style={{ fontSize: "0.75rem", marginTop: "0.25rem", whiteSpace: "pre-line" }}>{paySettings?.instructions || 'Use "Send Money" option'}</p>
               </div>
               <p className="text-muted" style={{ fontSize: "0.8rem" }}>Note your transaction ID after sending.</p>
             </div>

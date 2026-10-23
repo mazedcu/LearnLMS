@@ -133,6 +133,8 @@ export const assessmentsAPI = {
 };
 
 export const paymentsAPI = {
+  settings: () => api.get('/payments/settings/'),
+  updateSettings: (data) => api.patch('/payments/settings/', data),
   createOrder: (data) => api.post('/payments/orders/', data),
   submitReference: (id, data) => api.post(`/payments/orders/${id}/reference/`, data),
   getOrder: (id) => api.get(`/payments/orders/${id}/`),

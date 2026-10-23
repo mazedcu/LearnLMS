@@ -5,11 +5,30 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.common.permissions import IsAdmin
-from .models import Order, OrderStatus
+from .models import Order, OrderStatus, PaymentSettings
 from .serializers import (
     OrderSerializer, CreateOrderSerializer,
-    SubmitReferenceSerializer, VerifyOrderSerializer,
+    SubmitReferenceSerializer, VerifyOrderSerializer, PaymentSettingsSerializer,
 )
+
+
+class PaymentSettingsView(APIView):
+    """GET: anyone (checkout shows the numbers). PATCH: admins only."""
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
+
+    def get(self, request):
+        return Response(PaymentSettingsSerializer(PaymentSettings.load()).data)
+
+    def patch(self, request):
+        obj = PaymentSettings.load()
+        ser = PaymentSettingsSerializer(obj, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ser.data)
 
 
 class CreateOrderView(generics.CreateAPIView):
@@ -77,7 +96,7 @@ class VerifyOrderView(APIView):
         order.verified_at = timezone.now()
         order.save()  # triggers payment signal → enrollment + email
 
-        return Response(OrderSerializer(order).data)
+        return Response(OrderSerializer(order, context={'request': request}).data)
 
 
 class PendingOrdersView(generics.ListAPIView):
