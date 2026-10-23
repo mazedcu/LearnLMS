@@ -285,6 +285,127 @@ class QuizSerializer(serializers.ModelSerializer):
         read_only_fields = ['lesson']
 
 
+# ─── Student-facing serializers (no answer keys) ─────────────────────────────
+#
+# The admin serializers above return a question's full ``content``, which holds
+# the marking key (correct_answer, blanks, keywords, formula, mappings, each
+# item's correct_zone). Students must only receive what the player needs to
+# draw the question, so each type has an explicit whitelist.
+
+def _student_mcq(content):
+    return {
+        'options': list(content.get('options') or []),
+        'is_multiple': bool(content.get('is_multiple')),
+    }
+
+
+def _student_fill_blanks(content):
+    # The renderer builds the inputs from the [blankN] markers in the prompt.
+    return {}
+
+
+def _student_keyword_match(content):
+    return {}
+
+
+def _student_calculated_mcq(content):
+    # Variable ranges are not secret and let the player fall back to local
+    # generation; the formula and tolerance are the answer key.
+    out = {'variables': content.get('variables') or {}}
+    for key in ('units', 'unit'):
+        if key in content:
+            out[key] = content[key]
+    return out
+
+
+def _student_drag_drop_word(content):
+    words = list(content.get('draggable_words') or [])
+    if not words:
+        words = sorted(set((content.get('mappings') or {}).values()), key=str)
+    return {'draggable_words': words}
+
+
+def _student_drag_drop_image(content):
+    return {
+        'background_url': content.get('background_url') or content.get('background_image') or '',
+        'zones': list(content.get('zones') or []),
+        'items': [
+            {k: v for k, v in (item or {}).items() if k != 'correct_zone'}
+            for item in (content.get('items') or [])
+        ],
+    }
+
+
+_STUDENT_CONTENT = {
+    Question.Type.MCQ: _student_mcq,
+    Question.Type.FILL_BLANKS: _student_fill_blanks,
+    Question.Type.KEYWORD_MATCH: _student_keyword_match,
+    Question.Type.CALCULATED_MCQ: _student_calculated_mcq,
+    Question.Type.DRAG_DROP_WORD: _student_drag_drop_word,
+    Question.Type.DRAG_DROP_IMAGE: _student_drag_drop_image,
+}
+
+
+def student_safe_content(question_type, content):
+    """Return the parts of ``content`` a student may see. Unknown types get
+    nothing, so a new type can never leak its key by default."""
+    builder = _STUDENT_CONTENT.get(question_type)
+    return builder(content or {}) if builder else {}
+
+
+class StudentQuestionSerializer(serializers.ModelSerializer):
+    content = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = ['id', 'question_type', 'prompt', 'content', 'max_marks', 'order']
+
+    def get_content(self, obj):
+        return student_safe_content(obj.question_type, obj.content)
+
+
+class StudentQuizSerializer(serializers.ModelSerializer):
+    questions = serializers.SerializerMethodField()
+    attempts_used = serializers.SerializerMethodField()
+    attempts_left = serializers.SerializerMethodField()
+    best_score_percent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Quiz
+        fields = [
+            'id', 'lesson', 'title', 'description', 'time_limit_mins',
+            'passing_score', 'max_attempts', 'questions',
+            'attempts_used', 'attempts_left', 'best_score_percent',
+        ]
+
+    def _finished(self, obj):
+        cache = self.context.setdefault('_finished_cache', {})
+        if obj.pk not in cache:
+            user = self.context['request'].user
+            cache[obj.pk] = list(
+                QuizSubmission.objects.filter(student=user, quiz=obj).exclude(
+                    status=QuizSubmission.Status.IN_PROGRESS
+                )
+            )
+        return cache[obj.pk]
+
+    def get_questions(self, obj):
+        qs = obj.questions.filter(is_active=True).order_by('order')
+        return StudentQuestionSerializer(qs, many=True).data
+
+    def get_attempts_used(self, obj):
+        return len(self._finished(obj))
+
+    def get_attempts_left(self, obj):
+        if not obj.max_attempts:
+            return None  # unlimited
+        return max(obj.max_attempts - len(self._finished(obj)), 0)
+
+    def get_best_score_percent(self, obj):
+        scores = [s.score_percent for s in self._finished(obj)]
+        return max(scores) if scores else None
+
+
 class QuizSubmissionSerializer(serializers.ModelSerializer):
     score_percent = serializers.ReadOnlyField()
 

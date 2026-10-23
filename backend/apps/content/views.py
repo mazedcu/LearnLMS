@@ -13,24 +13,12 @@ from apps.dripping.services import DrippingService
 from .models import ContentBlock
 from .serializers import ContentBlockSerializer, ContentBlockWriteSerializer
 from apps.common.permissions import IsInstructorOrAdmin
+from apps.common.access import check_lesson_access, is_course_staff
 
 
 def _check_lesson_access(user, lesson):
-    """Return (enrollment, is_allowed)."""
-    if lesson.is_preview:
-        return None, True
-    if not user.is_authenticated:
-        return None, False
-    if user.role in ('admin', 'manager'):
-        return None, True
-    course = lesson.module.course
-    if course.instructor == user:
-        return None, True
-    enrollment = Enrollment.objects.filter(student=user, course=course, is_active=True).first()
-    if not enrollment:
-        return None, False
-    allowed = DrippingService(enrollment).is_unlocked(lesson)
-    return enrollment, allowed
+    """Return (enrollment, is_allowed). See apps.common.access."""
+    return check_lesson_access(user, lesson)
 
 
 class ContentBlockListCreateView(generics.ListCreateAPIView):
@@ -56,7 +44,16 @@ class ContentBlockListCreateView(generics.ListCreateAPIView):
 
 
 class ContentBlockDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ContentBlock.objects.all()
+    queryset = ContentBlock.objects.select_related('lesson__module__course')
+
+    def get_object(self):
+        block = super().get_object()
+        if self.request.method == 'GET':
+            _, allowed = _check_lesson_access(self.request.user, block.lesson)
+            if not allowed:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You do not have access to this lesson.')
+        return block
 
     def get_permissions(self):
         if self.request.method in ('PUT', 'PATCH', 'DELETE'):
@@ -126,6 +123,61 @@ class LessonDripStatusView(APIView):
         })
 
 
+class CourseLessonStatusView(APIView):
+    """Per-lesson state for the signed-in user across a whole course:
+    whether each lesson is open, completed, and if locked, why."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        from apps.courses.models import Course
+        course = get_object_or_404(Course, slug=slug)
+        user = request.user
+        staff = is_course_staff(user, course)
+
+        lessons = (
+            Lesson.objects.filter(module__course=course)
+            .select_related('module__course', 'drip_rule__required_lesson', 'drip_rule__required_quiz')
+            .order_by('module__order', 'order')
+        )
+        if not staff:
+            lessons = lessons.filter(is_published=True)
+
+        from apps.common.access import active_enrollment
+        enrollment = None if staff else active_enrollment(user, course)
+        completed = set()
+        if enrollment:
+            completed = set(
+                LessonProgress.objects.filter(enrollment=enrollment, is_completed=True)
+                .values_list('lesson_id', flat=True)
+            )
+        dripper = DrippingService(enrollment) if enrollment else None
+
+        result = {}
+        for lesson in lessons:
+            if staff or lesson.is_preview:
+                accessible, lock = True, None
+            elif not user.is_authenticated:
+                accessible, lock = False, {'reason': 'login', 'message': 'Sign in and enroll to open this lesson.', 'unlock_at': None}
+            elif not enrollment:
+                accessible, lock = False, {'reason': 'enroll', 'message': 'Enroll in this course to open this lesson.', 'unlock_at': None}
+            else:
+                accessible = dripper.is_unlocked(lesson)
+                lock = None if accessible else dripper.lock_info(lesson)
+            result[str(lesson.id)] = {
+                'accessible': accessible,
+                'completed': lesson.id in completed,
+                'lock': lock,
+            }
+
+        cp = getattr(enrollment, 'progress', None) if enrollment else None
+        return Response({
+            'enrolled': bool(enrollment),
+            'is_staff': staff,
+            'percent_complete': cp.percent_complete if cp else 0,
+            'lessons': result,
+        })
+
+
 class H5PServeView(APIView):
     """Serve extracted H5P content with h5p-standalone player."""
     permission_classes = [permissions.AllowAny]
@@ -133,7 +185,12 @@ class H5PServeView(APIView):
     def get(self, request, block_id):
         import zipfile
         import json as _json
-        block = get_object_or_404(ContentBlock, pk=block_id)
+        block = get_object_or_404(
+            ContentBlock.objects.select_related('lesson__module__course'), pk=block_id
+        )
+        _, allowed = _check_lesson_access(request.user, block.lesson)
+        if not allowed:
+            return HttpResponse('You do not have access to this lesson.', status=403)
 
         if block.block_type != 'h5p':
             return HttpResponse('Not an H5P block', status=404)

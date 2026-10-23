@@ -5,25 +5,32 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 import random
 from .models import Quiz, Question, QuizSubmission, QuestionResponse
+from apps.common.access import check_lesson_access, is_course_staff
+from rest_framework.exceptions import PermissionDenied
 from .serializers import (
-    QuizSerializer, QuestionSerializer,
+    QuizSerializer, QuestionSerializer, StudentQuizSerializer,
     QuizSubmissionSerializer, QuestionResponseSerializer,
     mark_question, generate_calc_variables, interpolate_prompt
 )
-
-class QuizListView(generics.ListAPIView):
-    serializer_class = QuizSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        lesson_pk = self.kwargs.get('lesson_pk')
-        return Quiz.objects.filter(lesson_id=lesson_pk, is_active=True)
 
 class StartQuizView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, quiz_pk):
-        quiz = get_object_or_404(Quiz, pk=quiz_pk, is_active=True)
+        quiz = get_object_or_404(
+            Quiz.objects.select_related('lesson__module__course'), pk=quiz_pk, is_active=True
+        )
+        _, allowed = check_lesson_access(request.user, quiz.lesson)
+        if not allowed:
+            raise PermissionDenied('You do not have access to this lesson.')
+
+        # Resume an unfinished attempt (e.g. after a page reload) rather than
+        # starting a new one and using up another attempt.
+        existing = QuizSubmission.objects.filter(
+            student=request.user, quiz=quiz, status=QuizSubmission.Status.IN_PROGRESS
+        ).first()
+        if existing:
+            return Response(QuizSubmissionSerializer(existing).data, status=status.HTTP_200_OK)
 
         # Check attempts
         if quiz.max_attempts > 0:
@@ -62,7 +69,7 @@ class SubmitAnswerView(APIView):
     def post(self, request, submission_pk, question_pk):
         submission = get_object_or_404(QuizSubmission, pk=submission_pk, student=request.user,
                                         status=QuizSubmission.Status.IN_PROGRESS)
-        question = get_object_or_404(Question, pk=question_pk, quiz=submission.quiz)
+        question = get_object_or_404(Question, pk=question_pk, quiz=submission.quiz, is_active=True)
 
         answer_data = request.data.get('answer_data', {})
 
@@ -82,7 +89,9 @@ class SubmitAnswerView(APIView):
             }
         )
 
-        return Response(QuestionResponseSerializer(response).data)
+        # Marks and feedback stay server-side until the quiz is finished;
+        # returning them here would let a student resubmit until correct.
+        return Response({'question': str(question.id), 'saved': True})
 
 class FinishQuizView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -99,7 +108,7 @@ class FinishQuizView(APIView):
         total_marks = 0
         total_obtained = 0
         
-        for question in submission.quiz.questions.all():
+        for question in submission.quiz.questions.filter(is_active=True):
             total_marks += question.max_marks
             resp = QuestionResponse.objects.filter(submission=submission, question=question).first()
             if resp:
@@ -108,8 +117,25 @@ class FinishQuizView(APIView):
         submission.total_marks = total_marks
         submission.score = total_obtained
         submission.save()
-        
-        return Response(QuizSubmissionSerializer(submission).data)
+
+        quiz = submission.quiz
+        data = QuizSubmissionSerializer(submission).data
+        data['passing_score'] = quiz.passing_score
+        data['passed'] = submission.score_percent >= quiz.passing_score
+        if quiz.max_attempts:
+            used = QuizSubmission.objects.filter(student=request.user, quiz=quiz).count()
+            data['attempts_left'] = max(quiz.max_attempts - used, 0)
+        else:
+            data['attempts_left'] = None
+
+        # A finished quiz can unlock quiz-score drip rules.
+        from apps.common.access import active_enrollment
+        enrollment = active_enrollment(request.user, quiz.lesson.module.course)
+        if enrollment:
+            from apps.dripping.services import DrippingService
+            DrippingService(enrollment).unlock_all_eligible()
+
+        return Response(data)
 
 class SubmissionDetailView(generics.RetrieveAPIView):
     serializer_class = QuizSubmissionSerializer
@@ -146,12 +172,45 @@ class IsAdminOrInstructor(permissions.BasePermission):
         )
 
 class QuizCreateView(generics.ListCreateAPIView):
-    """List or create quizzes for a lesson (admin/instructor)."""
-    serializer_class = QuizSerializer
-    permission_classes = [IsAdminOrInstructor]
+    """List quizzes for a lesson, or create one.
+
+    GET  — staff (admin/manager/course instructor) get full questions with
+           answer keys for the editor; students with access to the lesson get
+           active quizzes with answer keys removed.
+    POST — admin/instructor only.
+    """
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [permissions.IsAuthenticated()]
+        return [IsAdminOrInstructor()]
+
+    def _lesson(self):
+        if not hasattr(self, '_lesson_cache'):
+            from apps.courses.models import Lesson
+            self._lesson_cache = get_object_or_404(
+                Lesson.objects.select_related('module__course'), pk=self.kwargs['lesson_pk']
+            )
+        return self._lesson_cache
+
+    def _is_editor(self):
+        user = self.request.user
+        lesson = self._lesson()
+        return is_course_staff(user, lesson.module.course) or getattr(user, 'role', '') == 'instructor'
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET' and not self._is_editor():
+            return StudentQuizSerializer
+        return QuizSerializer
 
     def get_queryset(self):
-        return Quiz.objects.filter(lesson_id=self.kwargs['lesson_pk'])
+        lesson = self._lesson()
+        if self._is_editor():
+            return Quiz.objects.filter(lesson=lesson).order_by('created_at')
+        _, allowed = check_lesson_access(self.request.user, lesson)
+        if not allowed:
+            raise PermissionDenied('You do not have access to this lesson.')
+        return Quiz.objects.filter(lesson=lesson, is_active=True).order_by('created_at')
 
     def perform_create(self, serializer):
         serializer.save(lesson_id=self.kwargs['lesson_pk'])
