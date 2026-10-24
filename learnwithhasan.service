@@ -3,7 +3,7 @@ Description=Gunicorn daemon for LearnWithHasan
 After=network.target
 
 [Service]
-User=root
+User=www-data
 Group=www-data
 WorkingDirectory=/var/www/learnwithhasan/backend
 ExecStart=/var/www/learnwithhasan/backend/venv/bin/gunicorn --workers 3 --timeout 300 --bind 127.0.0.1:8001 config.wsgi:application

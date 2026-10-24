@@ -28,7 +28,10 @@ def on_order_verified(sender, instance, **kwargs):
     # Trigger only on status change TO 'verified'
     if previous.status != 'verified' and instance.status == 'verified':
         _create_enrollment(instance)
-        _send_enrollment_email(instance)
+        # Send after the save is committed, so a slow mail server never
+        # delays or breaks the approval itself.
+        from django.db import transaction
+        transaction.on_commit(lambda: _send_enrollment_email(instance))
 
 
 def _create_enrollment(order):
@@ -59,7 +62,7 @@ def _send_enrollment_email(order):
         f"Start learning: {settings.FRONTEND_URL}/learn/{order.course.slug}\n\n"
         f"Payment Reference: {order.payment_reference}\n"
         f"Amount Paid: BDT {order.amount}\n\n"
-        f"Thank you!\nThe LMS Team"
+        f"Thank you!\nLearnwithHasan"
     )
     try:
         send_mail(

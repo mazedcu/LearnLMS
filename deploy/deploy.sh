@@ -108,6 +108,14 @@ if [ -f "$ENV_FILE" ] && grep -Eq "^SECRET_KEY=['\"]?(super_secret_key|dev-secre
   ok "new random key set (everyone will need to sign in again once)"
 fi
 
+# Links in emails point at the real site, not localhost
+if [ -f "$ENV_FILE" ] && ! grep -q '^FRONTEND_URL=' "$ENV_FILE"; then
+  scheme=http
+  [ -f "$NGINX_SITE" ] && grep -q 'listen 443' "$NGINX_SITE" && scheme=https
+  echo "FRONTEND_URL=${scheme}://learnwithhasan.xyz" >> "$ENV_FILE"
+  ok "email links use ${scheme}://learnwithhasan.xyz"
+fi
+
 # ── 4. Backend ───────────────────────────────────────────────────────
 say "Backend: packages, migrations, static files"
 cd "$APP/backend"
@@ -186,16 +194,62 @@ if [ -f "$UNIT" ]; then
   fi
 fi
 
+# ── 6b. Run the app as a normal user instead of root ─────────────────
+APP_USER="${APP_USER:-www-data}"
+PREV_USER=""
+if [ -f "$UNIT" ] && id "$APP_USER" >/dev/null 2>&1; then
+  say "App account: $APP_USER (not root)"
+  B="$APP/backend"
+  mkdir -p "$B/media" "$B/.cache"
+  chown -R "$APP_USER:$APP_USER" "$B/media" "$B/.cache"
+  if [ -n "${DB_FILE:-}" ] && [ -f "$DB_FILE" ]; then
+    # SQLite writes the file and creates journal files next to it
+    chown "$APP_USER:$APP_USER" "$DB_FILE"
+    chgrp "$APP_USER" "$(dirname "$DB_FILE")" && chmod g+rwx "$(dirname "$DB_FILE")"
+  fi
+  if [ -f "$ENV_FILE" ]; then chown "root:$APP_USER" "$ENV_FILE"; chmod 640 "$ENV_FILE"; fi
+
+  can() { runuser -u "$APP_USER" -- test "$@"; }
+  if can -r "$ENV_FILE" && can -w "$B/media" && can -w "$B/.cache" \
+     && { [ -z "${DB_FILE:-}" ] || ! [ -f "$DB_FILE" ] || { can -w "$DB_FILE" && can -w "$(dirname "$DB_FILE")"; }; }; then
+    PREV_USER="$(grep -E '^User=' "$UNIT" | head -1 | cut -d= -f2)"
+    if [ "$PREV_USER" != "$APP_USER" ]; then
+      if grep -qE '^User=' "$UNIT"; then
+        sed -i -E "s/^User=.*/User=$APP_USER/" "$UNIT"
+      else
+        sed -i "/^\[Service\]/a User=$APP_USER" "$UNIT"
+      fi
+      systemctl daemon-reload
+      ok "service will run as $APP_USER"
+    else
+      PREV_USER=""   # nothing changed, nothing to roll back
+      ok "already running as $APP_USER"
+    fi
+  else
+    warn "$APP_USER can't write everything it needs — staying on the current user"
+  fi
+fi
+
 # ── 7. Restart + health check ────────────────────────────────────────
+health() {
+  for i in $(seq 1 20); do
+    code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${APP_PORT}/api/courses/" || true)"
+    [ "$code" = 200 ] && return 0
+    sleep 1
+  done
+  return 1
+}
 say "Restarting $SERVICE"
 systemctl restart "$SERVICE"
-for i in $(seq 1 20); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${APP_PORT}/api/courses/" || true)"
-  [ "$code" = 200 ] && break
-  sleep 1
-done
+if ! health && [ -n "$PREV_USER" ]; then
+  warn "App didn't start as $APP_USER — switching back to ${PREV_USER:-root}"
+  sed -i -E "s/^User=.*/User=${PREV_USER:-root}/" "$UNIT"
+  systemctl daemon-reload
+  systemctl restart "$SERVICE"
+  health || true
+fi
 if [ "$code" = 200 ]; then
-  ok "API answering (HTTP 200)"
+  ok "API answering (HTTP 200) as $(grep -E '^User=' "$UNIT" 2>/dev/null | cut -d= -f2 || echo '?')"
 else
   warn "API returned HTTP ${code:-none}. Recent logs:"
   journalctl -u "$SERVICE" -n 30 --no-pager || true

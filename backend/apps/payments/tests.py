@@ -39,3 +39,21 @@ class PaymentSettingsTests(TestCase):
         pending = pending if isinstance(pending, list) else pending['results']
         self.assertEqual(pending[0]['payment_reference'], 'ABC123')
         self.assertEqual(pending[0]['reference_used_on'][0]['student_email'], 'o@x.com')
+
+
+class EnrollmentEmailTests(TestCase):
+    def test_approving_a_payment_enrols_and_emails_the_student(self):
+        from django.core import mail
+        from apps.courses.models import Enrollment
+        admin = CustomUser.objects.create_user(email='a@x.com', username='a', password='pw', role='admin')
+        student = CustomUser.objects.create_user(email='s@x.com', username='s', password='pw', role='student')
+        course = Course.objects.create(title='Physics', slug='physics', instructor=admin, status='published', price=500)
+        order = Order.objects.create(student=student, course=course, amount=500, payment_reference='TX1', status='submitted')
+        c = APIClient(); c.force_authenticate(admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            r = c.patch(f'/api/payments/orders/{order.id}/verify/', {'action': 'verified'}, format='json')
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(Enrollment.objects.filter(student=student, course=course, is_active=True).exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('Physics', mail.outbox[0].subject)
+        self.assertEqual(mail.outbox[0].to, ['s@x.com'])

@@ -184,13 +184,25 @@ MEDIA_ACCEL_PREFIX = "/protected-media/"
 # ------------------------------------------------------------------ #
 # Email
 # ------------------------------------------------------------------ #
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# Email (Gmail): set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD (a Gmail *App
+# Password*, not your normal password) in backend/.env. Until then emails are
+# written to the app log instead, so nothing fails or hangs.
 EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="LMS Platform <noreply@lms.com>")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="").replace(" ", "")  # app passwords are shown with spaces
+EMAIL_TIMEOUT = 15
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD
+    else "django.core.mail.backends.console.EmailBackend"
+)
+# Gmail only sends "from" the signed-in account
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL",
+    default=f"LearnwithHasan <{EMAIL_HOST_USER}>" if EMAIL_HOST_USER else "LearnwithHasan <noreply@learnwithhasan.xyz>",
+)
 
 # ------------------------------------------------------------------ #
 # Celery
