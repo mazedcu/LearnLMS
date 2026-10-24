@@ -14,9 +14,11 @@
 #    5. Raises the nginx upload limit to 2 GB and gunicorn timeout to 300 s,
 #       editing the live config in place (keeps your HTTPS/certbot settings)
 #    6. Replaces a publicly known SECRET_KEY with a random one
-#    7. Restarts the app and checks it answers
+#    7. Restarts the app and checks it answers (API and the site through nginx)
 #
 #  Safe to run again; every step is idempotent.
+#  Undo the last deploy:
+#    curl -fsSL https://raw.githubusercontent.com/mazedcu/LearnLMS/master/deploy/rollback.sh | bash
 # ─────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -71,12 +73,14 @@ elif [[ "$DB_URL" == postgres* ]]; then
   fi
 fi
 tar -C "$APP" --exclude=venv --exclude=node_modules --exclude=media --exclude=staticfiles \
-    --exclude=dist --exclude=dist.new --exclude=.git -czf "$BACKUP/code.tgz" . && ok "code snapshot"
+    --exclude=dist --exclude=dist.new --exclude=dist.prev --exclude=.git -czf "$BACKUP/code.tgz" . && ok "code snapshot"
 chmod 600 "$BACKUP"/*   # backups include .env secrets
 
 # ── 2. Code ──────────────────────────────────────────────────────────
 say "Updating code to $BRANCH"
 cd "$APP"
+PREV_COMMIT="$(git rev-parse -q --verify HEAD 2>/dev/null || true)"
+echo "${PREV_COMMIT:-none}" > "$BACKUP/prev_commit"
 if [ ! -d .git ]; then
   # First run: turn the folder into a git checkout so future deploys are one pull.
   git init -q
@@ -92,6 +96,13 @@ git fetch -q --depth 50 origin "$BRANCH"
 git -c advice.detachedHead=false checkout -q -B "$BRANCH" "origin/$BRANCH" -f
 git reset -q --hard "origin/$BRANCH"
 ok "now at $(git log -1 --format='%h %s')"
+if [ -n "$PREV_COMMIT" ] && [ "$PREV_COMMIT" != "$(git rev-parse HEAD)" ] && git cat-file -e "$PREV_COMMIT" 2>/dev/null; then
+  echo "    Going live:"
+  git log --format='      • %s' "$PREV_COMMIT..HEAD" | head -40
+elif [ -z "$PREV_COMMIT" ]; then
+  echo "    Going live (latest changes):"
+  git log --format='      • %s' -12
+fi
 
 # Old helper scripts that contained a plaintext admin password
 for f in "$APP/update_remote.sh" "$APP/backend/update_admin.py" /root/update_remote.sh /root/update_admin.py; do
@@ -132,15 +143,29 @@ ok "backend ready"
 # ── 5. Frontend (build aside, then swap) ─────────────────────────────
 say "Frontend: build"
 cd "$APP/frontend"
-command -v npm >/dev/null || die "npm isn't installed on this server."
+# Vite 8 needs Node 20.19+ or 22.12+; install Node 22 LTS if the server's is older.
+node_ok() {
+  command -v node >/dev/null && command -v npm >/dev/null || return 1
+  node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit((a===20&&b>=19)||(a===22&&b>=12)||a>22?0:1)'
+}
+if ! node_ok; then
+  say "Installing Node.js 22 (found: $(node -v 2>/dev/null || echo none))"
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates curl gnupg >/dev/null
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nodejs >/dev/null
+  hash -r
+  node_ok || die "Couldn't install a new enough Node.js (have $(node -v 2>/dev/null || echo none)). The live site was not changed."
+fi
+ok "Node $(node -v)"
 npm ci --no-audit --no-fund --loglevel=error
 rm -rf dist.new
 npx vite build --outDir dist.new --emptyOutDir >/dev/null
 [ -f dist.new/index.html ] || die "Frontend build produced no index.html; the live site was not changed."
-rm -rf dist.old
-[ -d dist ] && mv dist dist.old
+# Keep the previous build as dist.prev so rollback.sh can put it back instantly
+rm -rf dist.prev
+[ -d dist ] && mv dist dist.prev
 mv dist.new dist
-rm -rf dist.old
 ok "frontend swapped in"
 
 # ── 6. nginx + gunicorn limits ───────────────────────────────────────
@@ -256,5 +281,13 @@ else
   die "Deploy finished but the app isn't healthy. Backup: $BACKUP"
 fi
 
+# The public site through nginx (warn only: DNS/HTTPS setups vary)
+site="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: learnwithhasan.xyz' http://127.0.0.1/ || true)"
+case "$site" in
+  200|301|302|308) ok "site answering through nginx (HTTP $site)";;
+  *) warn "site through nginx returned HTTP ${site:-none} — check: nginx -t && systemctl status nginx";;
+esac
+
 say "Done — live at $(cd "$APP" && git log -1 --format='%h %s')"
 echo "    Backup: $BACKUP"
+echo "    Undo:   curl -fsSL https://raw.githubusercontent.com/mazedcu/LearnLMS/master/deploy/rollback.sh | bash"
