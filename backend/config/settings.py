@@ -127,6 +127,22 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    # nginx sits in front of gunicorn: take the client IP from X-Forwarded-For
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=1),
+    # Per-IP limits are generous because a whole class may share one school IP;
+    # per-account protection is the failed-login lockout in accounts/security.py.
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "60/min",
+        "register": "30/hour",
+    },
+}
+
+# Shared by all gunicorn workers (login lockouts, throttles)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": env("CACHE_DIR", default=str(BASE_DIR / ".cache")),
+    }
 }
 
 # ------------------------------------------------------------------ #

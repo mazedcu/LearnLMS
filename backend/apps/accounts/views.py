@@ -6,11 +6,15 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .models import CustomUser
 from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer, TokenPairSerializer
 from apps.common.permissions import IsAdmin
+from rest_framework.throttling import ScopedRateThrottle
+from . import security
 
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -22,10 +26,21 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request):
+        email = str(request.data.get("email", ""))
+        if security.is_locked(email):
+            return Response(
+                {"detail": f"Too many wrong passwords. Please wait {security.LOCK_MINUTES} minutes and try again."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            security.record_failure(email)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        security.clear(email)
         user = serializer.validated_data["user"]
         tokens = TokenPairSerializer.get_tokens(user)
         return Response(tokens)

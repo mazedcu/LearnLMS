@@ -20,3 +20,6 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Django file cache (login lockouts, throttles)
+backend/.cache/
