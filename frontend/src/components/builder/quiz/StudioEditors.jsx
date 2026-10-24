@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Plus, Trash2, X, RefreshCw, Upload, Lightbulb, ImagePlus } from "lucide-react";
+import { Check, Plus, Trash2, X, RefreshCw, Upload, Lightbulb, ImagePlus, Sparkles, ShieldCheck, AlertTriangle } from "lucide-react";
 import { adminAPI } from "../../../api";
 import {
   gapTokens, toggleGapAt, parseGaps, detectVariables, evalFormula, splitEvenly,
+  calcTokens, makeVariable, revertVariable, exampleValues, suggestMistakes, checkVersions,
 } from "./quizModel";
 
 /* ── Small shared pieces ──────────────────────────────────────────────── */
@@ -228,32 +229,114 @@ export function KeywordEditor({ draft, set }) {
 
 /* ── Calculation ──────────────────────────────────────────────────────── */
 
-export function CalcEditor({ draft, set, sample, onNewNumbers }) {
+export function CalcEditor({ draft, set }) {
   const names = detectVariables(draft.prompt);
   const vars = draft.variables;
+  const tokens = useMemo(() => calcTokens(draft.prompt), [draft.prompt]);
+  const mine = useMemo(() => exampleValues(vars, names), [vars, names.join()]);
+  const res = names.length ? evalFormula(draft.formula, mine) : null;
+  const formulaRef = useRef(null);
+  const [runSeed, setRunSeed] = useState(0);
+  const [lastMade, setLastMade] = useState(null);
+
   const setVar = (n, patch) => set({ variables: { ...vars, [n]: { min: 1, max: 10, decimals: 0, ...vars[n], ...patch } } });
-  const res = sample ? evalFormula(draft.formula, sample) : null;
+  const clickNumber = (t) => {
+    const r = makeVariable(draft.prompt, vars, t);
+    set({ prompt: r.prompt, variables: r.variables });
+    setLastMade(r.name);
+  };
+  const clickChip = (t) => set(revertVariable(draft.prompt, vars, t));
+
+  // Insert text at the formula cursor (keypad + variable chips)
+  const insert = (text, wrap) => {
+    const el = formulaRef.current;
+    const f = draft.formula;
+    const s0 = el ? el.selectionStart ?? f.length : f.length;
+    const s1 = el ? el.selectionEnd ?? f.length : f.length;
+    let next, caret;
+    if (wrap) {
+      const inner = f.slice(s0, s1);
+      next = f.slice(0, s0) + wrap[0] + inner + wrap[1] + f.slice(s1);
+      caret = s0 + wrap[0].length + inner.length + (inner ? wrap[1].length : 0);
+    } else {
+      const pad = (/[\w)]$/.test(f.slice(0, s0)) && /^[\w(]/.test(text)) ? " " : "";
+      next = f.slice(0, s0) + pad + text + f.slice(s1);
+      caret = s0 + pad.length + text.length;
+    }
+    set({ formula: next });
+    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(caret, caret); } });
+  };
+
+  const used = new Set(draft.distractors.map((x) => x.replace(/\s+/g, "")));
+  const mistakes = useMemo(
+    () => (res && !res.error ? suggestMistakes(draft.formula, mine) : []).filter((m) => !used.has(m.expr.replace(/\s+/g, ""))),
+    [draft.formula, mine, draft.distractors.join("\n")] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const addWrong = (expr) => {
+    const list = [...draft.distractors];
+    const empty = list.findIndex((x) => !x.trim());
+    if (empty >= 0) list[empty] = expr; else list.push(expr);
+    set({ distractors: list });
+  };
+
+  const health = useMemo(
+    () => (res && !res.error ? checkVersions(draft.formula, draft.distractors, vars, names, 200) : null),
+    [draft.formula, draft.distractors.join("\n"), JSON.stringify(vars), names.join(), runSeed] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const wrongCount = draft.distractors.filter((x) => x.trim()).length;
+  const fmt = (v) => (typeof v === "number" ? Number(v.toFixed(4)) : v);
 
   return (
     <>
       <PromptField value={draft.prompt} onChange={(prompt) => set({ prompt })} autoFocus={!draft.id}
-        placeholder="e.g. A car travels {{d}} km in {{t}} hours. What is its average speed in km/h?" />
-      <div className="qs-tip"><Lightbulb size={16} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>Put each changing number in double curly brackets, like <code>{"{{d}}"}</code>. Every student gets different numbers.</span>
-      </div>
+        label="Question — write it with real numbers"
+        placeholder="e.g. A car travels 120 km in 2 hours. What is its average speed in km/h?" />
+
+      {draft.prompt.trim() && (
+        <div className="qs-field">
+          <span className="qs-label">
+            Click the numbers that should change for each student
+            {names.length > 0 && <span className="text-muted" style={{ fontWeight: 500 }}> · {names.length} changing</span>}
+          </span>
+          <div className="qs-sentence qs-calc-sentence">
+            {tokens.map((t, i) =>
+              t.kind === "text" ? <span key={i}>{t.text}</span> :
+              t.kind === "num" ? (
+                <button key={i} type="button" className="qs-word qs-num" title="Click to make this number change"
+                  onClick={() => clickNumber(t)}>{t.text}</button>
+              ) : (
+                <button key={i} type="button" className="qs-gap qs-varchip" title="Click to turn back into a fixed number"
+                  onClick={() => clickChip(t)}>
+                  <span className="qs-varchip-name">{t.name}</span>
+                  <span className="qs-varchip-range">{vars[t.name] ? `${vars[t.name].min}–${vars[t.name].max}` : "1–10"}</span>
+                </button>
+              )
+            )}
+          </div>
+          {!names.length && (
+            <p className="qs-hint">No changing numbers yet — <b>click a number above</b>. (Or type a name in curly brackets like <code>{"{{d}}"}</code>.)</p>
+          )}
+        </div>
+      )}
 
       {names.length > 0 && (
         <div className="qs-field">
-          <span className="qs-label">Number ranges</span>
+          <span className="qs-label">Each student gets a number…</span>
           <div className="qs-vars">
             {names.map((n) => {
               const v = { min: 1, max: 10, decimals: 0, ...vars[n] };
+              const bad = Number(v.min) > Number(v.max);
               return (
-                <div key={n} className="qs-var">
+                <div key={n} className={`qs-var2 ${lastMade === n ? "fresh" : ""} ${bad ? "bad" : ""}`}>
                   <span className="qs-var-name">{n}</span>
-                  <label>from<input className="qs-input sm" type="number" value={v.min} onChange={(e) => setVar(n, { min: e.target.value })} /></label>
-                  <label>to<input className="qs-input sm" type="number" value={v.max} onChange={(e) => setVar(n, { max: e.target.value })} /></label>
-                  <label>decimals<input className="qs-input sm" type="number" min="0" max="4" value={v.decimals} onChange={(e) => setVar(n, { decimals: e.target.value })} /></label>
+                  <span className="qs-var-words">from</span>
+                  <input className="qs-input sm" type="number" step="any" aria-label={`${n} from`} value={v.min} onChange={(e) => setVar(n, { min: e.target.value })} />
+                  <span className="qs-var-words">to</span>
+                  <input className="qs-input sm" type="number" step="any" aria-label={`${n} to`} value={v.max} onChange={(e) => setVar(n, { max: e.target.value })} />
+                  <select className="qs-input sm qs-var-dec" aria-label={`${n} decimals`} value={Number(v.decimals)} onChange={(e) => setVar(n, { decimals: Number(e.target.value) })}>
+                    <option value={0}>whole</option><option value={1}>0.1</option><option value={2}>0.01</option><option value={3}>0.001</option>
+                  </select>
+                  {v.example !== undefined && <span className="qs-var-ex">you wrote {v.example}</span>}
                 </div>
               );
             })}
@@ -261,47 +344,98 @@ export function CalcEditor({ draft, set, sample, onNewNumbers }) {
         </div>
       )}
 
-      {sample && names.length > 0 && (
-        <div className="qs-sample">
-          Example numbers: {Object.entries(sample).map(([k, v]) => <b key={k}>{k} = {v}</b>)}
-          <button type="button" className="cb-btn cb-btn-ghost" style={{ padding: "0.2rem 0.5rem", marginLeft: "auto" }} onClick={onNewNumbers}>
-            <RefreshCw size={13} /> New numbers
-          </button>
+      {names.length > 0 && (
+        <div className="qs-field">
+          <label htmlFor="qs-formula">Formula for the right answer</label>
+          <div className="qs-keypad" role="group" aria-label="Formula keypad">
+            {names.map((n) => (
+              <button key={n} type="button" className="qs-key var" onClick={() => insert(n)}>{n}</button>
+            ))}
+            <span className="qs-key-sep" />
+            {[["+", " + "], ["−", " - "], ["×", " * "], ["÷", " / "]].map(([l, t]) => (
+              <button key={l} type="button" className="qs-key op" onClick={() => insert(t)}>{l}</button>
+            ))}
+            <button type="button" className="qs-key" title="Brackets" onClick={() => insert(null, ["(", ")"])}>( )</button>
+            <button type="button" className="qs-key" title="Squared" onClick={() => insert("**2")}>x²</button>
+            <button type="button" className="qs-key" title="Square root" onClick={() => insert(null, ["sqrt(", ")"])}>√</button>
+            <button type="button" className="qs-key" title="Round to 2 decimals" onClick={() => insert(null, ["round(", ", 2)"])}>round</button>
+            <button type="button" className="qs-key" title="π" onClick={() => insert("pi")}>π</button>
+          </div>
+          <input id="qs-formula" ref={formulaRef} className="qs-input qs-formula" value={draft.formula}
+            placeholder={`Tap the keys or type, e.g. ${names.slice(0, 2).join(" / ")}`}
+            onChange={(e) => set({ formula: e.target.value })} />
+          {draft.formula.trim() && res && (
+            <span className={`qs-live ${res.error ? "bad" : "ok"}`}>
+              {res.error ? res.error : <>With your numbers ({names.map((n) => `${n} = ${mine[n]}`).join(", ")}) the answer is <b>{fmt(res.value)}</b></>}
+            </span>
+          )}
         </div>
       )}
 
-      <div className="qs-field">
-        <label>Formula for the right answer</label>
-        <input className="qs-input qs-formula" value={draft.formula} placeholder={names.length ? `e.g. ${names.join(" / ")}` : "e.g. d / t"}
-          onChange={(e) => set({ formula: e.target.value })} />
-        {draft.formula.trim() && res && (
-          <span className={`qs-live ${res.error ? "bad" : "ok"}`}>{res.error ? res.error : <>= {res.value} with these numbers</>}</span>
-        )}
-        <p className="qs-hint">Use + − * / and ** for powers. Also sqrt(), round(), pi, sin(), log().</p>
-      </div>
-
-      <div className="qs-field">
-        <span className="qs-label">Wrong answers students might give <span className="text-muted" style={{ fontWeight: 500 }}>— makes it multiple choice</span></span>
-        {draft.distractors.map((d, i) => {
-          const r = d.trim() && sample ? evalFormula(d, sample) : null;
-          return (
-            <div key={i} className="qs-opt">
-              <input className="qs-input qs-formula" value={d} placeholder="e.g. d * t  (a common mistake)"
-                onChange={(e) => set({ distractors: draft.distractors.map((x, j) => (j === i ? e.target.value : x)) })} />
-              {r && <span className={`qs-live ${r.error ? "bad" : ""}`} style={{ marginTop: 0, whiteSpace: "nowrap" }}>{r.error ? "!" : `= ${r.value}`}</span>}
-              <button type="button" className="cb-icon-btn danger" aria-label="Remove" onClick={() => set({ distractors: draft.distractors.length > 1 ? draft.distractors.filter((_, j) => j !== i) : [""] })}><Trash2 size={15} /></button>
+      {names.length > 0 && (
+        <div className="qs-field">
+          <span className="qs-label">Wrong answers <span className="text-muted" style={{ fontWeight: 500 }}>— worked out with each student's numbers</span></span>
+          {mistakes.length > 0 && (
+            <div className="qs-mistakes">
+              <span className="qs-mistakes-title"><Sparkles size={13} /> Common mistakes — tap to add</span>
+              {mistakes.map((m) => (
+                <button key={m.expr} type="button" className="qs-mistake" onClick={() => addWrong(m.expr)}>
+                  <Plus size={12} /><code>{m.expr}</code><b>= {fmt(m.value)}</b><span>{m.why}</span>
+                </button>
+              ))}
             </div>
-          );
-        })}
-        <button type="button" className="qs-addline" onClick={() => set({ distractors: [...draft.distractors, ""] })}><Plus size={14} /> Add wrong answer</button>
-        <p className="qs-hint">Leave empty and students type the number instead.</p>
-      </div>
+          )}
+          {draft.distractors.map((d, i) => {
+            const r = d.trim() ? evalFormula(d, mine) : null;
+            const same = r && !r.error && res && !res.error && Math.abs(r.value - res.value) < 1e-9;
+            return (
+              <div key={i} className="qs-opt">
+                <input className="qs-input qs-formula" value={d} placeholder="your own wrong-answer formula"
+                  onChange={(e) => set({ distractors: draft.distractors.map((x, j) => (j === i ? e.target.value : x)) })} />
+                {r && <span className={`qs-live ${r.error || same ? "bad" : ""}`} style={{ marginTop: 0, whiteSpace: "nowrap" }}>
+                  {r.error ? "can't read" : same ? "same as right answer" : `= ${fmt(r.value)}`}</span>}
+                <button type="button" className="cb-icon-btn danger" aria-label="Remove" onClick={() => set({ distractors: draft.distractors.length > 1 ? draft.distractors.filter((_, j) => j !== i) : [""] })}><Trash2 size={15} /></button>
+              </div>
+            );
+          })}
+          <button type="button" className="qs-addline" onClick={() => set({ distractors: [...draft.distractors, ""] })}><Plus size={14} /> Write my own</button>
+          <p className="qs-hint">{wrongCount ? `Students pick from ${wrongCount + 1} answers.` : "No wrong answers: students type the number instead."}</p>
+        </div>
+      )}
 
-      <div className="qs-field" style={{ maxWidth: 220 }}>
-        <label>Accept answers within</label>
-        <input className="qs-input sm" type="number" step="any" min="0" value={draft.tolerance} onChange={(e) => set({ tolerance: e.target.value })} />
-        <p className="qs-hint">e.g. 0.01 accepts 3.14 for π.</p>
-      </div>
+      {health && (
+        <div className={`qs-health ${health.warnings.length ? "warn" : "ok"}`}>
+          <div className="qs-health-head">
+            {health.warnings.length ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
+            <b>{health.warnings.length ? "Check these before saving" : `Tried ${health.runs} student versions — all work`}</b>
+            <button type="button" className="cb-btn cb-btn-ghost" style={{ padding: "0.15rem 0.45rem", marginLeft: "auto" }} onClick={() => setRunSeed((x) => x + 1)}>
+              <RefreshCw size={12} /> Try again
+            </button>
+          </div>
+          {health.warnings.map((w) => <p key={w} className="qs-health-warn">{w}</p>)}
+          {health.min !== null && <p className="qs-health-range">Right answers range from <b>{fmt(health.min)}</b> to <b>{fmt(health.max)}</b>.</p>}
+          {health.examples.length > 0 && (
+            <div className="qs-versions">
+              {health.examples.map((ex, i) => (
+                <div key={i} className="qs-version">
+                  <span className="qs-version-who">Student {i + 1}</span>
+                  <span className="qs-version-nums">{Object.entries(ex.values).map(([k, v]) => `${k}=${v}`).join("  ")}</span>
+                  <span className="qs-version-ans"><Check size={12} /> {fmt(ex.answer)}</span>
+                  {ex.wrong.map((w, j) => <span key={j} className="qs-version-wrong">{fmt(w)}</span>)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {names.length > 0 && (
+        <div className="qs-field" style={{ maxWidth: 240 }}>
+          <label>Accept answers within</label>
+          <input className="qs-input sm" type="number" step="any" min="0" value={draft.tolerance} onChange={(e) => set({ tolerance: e.target.value })} />
+          <p className="qs-hint">e.g. 0.01 accepts 3.14 for π.</p>
+        </div>
+      )}
     </>
   );
 }

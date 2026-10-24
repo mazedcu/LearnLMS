@@ -116,6 +116,152 @@ export function fillPrompt(prompt, variables) {
   return (prompt || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) => (k in variables ? String(variables[k]) : m));
 }
 
+/* ── Calculation authoring helpers ────────────────────────────────────── */
+
+const RESERVED = new Set([...Object.keys(MATH), "e"]);
+
+/**
+ * Tokens of a calculation prompt: plain text, numbers the teacher can click
+ * to make variable, and existing {{variables}}. Numbers that follow a letter
+ * (H2O, x2) are left alone; units straight after are fine (5kg).
+ */
+export function calcTokens(prompt) {
+  const out = [];
+  const re = /\{\{\s*([A-Za-z_]\w*)\s*\}\}|\d+(?:\.\d+)?/g;
+  let last = 0, m;
+  const text = prompt || "";
+  while ((m = re.exec(text))) {
+    const before = text[m.index - 1] || "";
+    const isVar = !!m[1];
+    if (!isVar && /[A-Za-z_\d.]/.test(before)) continue;
+    if (m.index > last) out.push({ kind: "text", text: text.slice(last, m.index) });
+    out.push(isVar
+      ? { kind: "var", name: m[1], start: m.index, end: m.index + m[0].length }
+      : { kind: "num", text: m[0], value: Number(m[0]), start: m.index, end: m.index + m[0].length });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push({ kind: "text", text: text.slice(last) });
+  return out;
+}
+
+/** A sensible range around an example number: 5 → 2–8, 0.4 → 0.2–0.6 (1 dp). */
+export function rangeAround(value) {
+  const decimals = (String(value).split(".")[1] || "").length;
+  const step = 10 ** -decimals;
+  const fix = (n) => Number(n.toFixed(decimals));
+  const k = 10 ** decimals;
+  let min = fix(Math.max(step, Math.floor(value * 0.5 * k + 1e-9) / k));
+  let max = fix(Math.max(Math.ceil(value * 1.5 * k - 1e-9) / k, value + 2 * step));
+  if (decimals === 0) { min = Math.max(1, min); max = Math.max(min + 2, max); }
+  return { min, max, decimals, example: value };
+}
+
+function nextVarName(taken) {
+  for (const c of "abcdfghjkmnpqrstuvwxyz") if (!taken.has(c) && !RESERVED.has(c)) return c;
+  let i = 1; while (taken.has(`v${i}`)) i++; return `v${i}`;
+}
+
+/** Click a number → it becomes {{name}} with a range around it. */
+export function makeVariable(prompt, variables, token, name) {
+  const taken = new Set([...detectVariables(prompt), ...Object.keys(variables || {})]);
+  const n = name && !taken.has(name) && !RESERVED.has(name) ? name : nextVarName(taken);
+  return {
+    prompt: prompt.slice(0, token.start) + `{{${n}}}` + prompt.slice(token.end),
+    variables: { ...variables, [n]: rangeAround(token.value) },
+    name: n,
+  };
+}
+
+/** Click a variable chip → back to its example number. */
+export function revertVariable(prompt, variables, token) {
+  const cfg = variables?.[token.name] || {};
+  const value = cfg.example ?? cfg.min ?? 1;
+  const rest = { ...variables };
+  const stillUsed = detectVariables(prompt.slice(0, token.start) + prompt.slice(token.end)).includes(token.name);
+  if (!stillUsed) delete rest[token.name];
+  return { prompt: prompt.slice(0, token.start) + String(value) + prompt.slice(token.end), variables: rest };
+}
+
+/** The example numbers the teacher wrote (falls back to the middle of the range). */
+export function exampleValues(variables, names) {
+  return Object.fromEntries(names.map((n) => {
+    const v = variables?.[n] || {};
+    const val = v.example ?? (Number(v.min ?? 1) + Number(v.max ?? 10)) / 2;
+    return [n, Number(Number(val).toFixed(Number(v.decimals ?? 0)))];
+  }));
+}
+
+/**
+ * Typical student mistakes for a formula, each with its value for the given
+ * numbers. Skips ones that equal the right answer or each other.
+ */
+export function suggestMistakes(formula, values) {
+  const f = (formula || "").trim();
+  const right = evalFormula(f, values).value;
+  if (right === undefined) return [];
+  const cands = [];
+  const add = (expr, why) => cands.push({ expr, why });
+  const swaps = [["*", "/", "divided instead of multiplied"], ["/", "*", "multiplied instead of divided"],
+                 ["+", "-", "subtracted instead of added"], ["-", "+", "added instead of subtracted"]];
+  for (const [from, to, why] of swaps) {
+    // each single occurrence (not inside **)
+    for (let i = 0; i < f.length; i++) {
+      if (f[i] !== from) continue;
+      if (from === "*" && (f[i + 1] === "*" || f[i - 1] === "*")) continue;
+      add(f.slice(0, i) + to + f.slice(i + 1), why);
+    }
+  }
+  const div = f.match(/^\s*([^/]+?)\s*\/\s*([^/]+?)\s*$/);
+  if (div && !/[()]/.test(f)) add(`${div[2]} / ${div[1]}`, "divided the wrong way round");
+  if (/\*\*\s*2/.test(f)) add(f.replace(/\*\*\s*2/, ""), "forgot to square");
+  if (/sqrt\(/.test(f)) add(f.replace(/sqrt\(([^()]*)\)/, "($1)"), "forgot the square root");
+  add(`(${f}) * 10`, "×10 unit slip");
+  add(`(${f}) / 10`, "÷10 unit slip");
+  add(`(${f}) * 2`, "doubled it");
+  add(`(${f}) / 2`, "halved it");
+  const seen = [right];
+  const out = [];
+  for (const c of cands) {
+    const v = evalFormula(c.expr, values).value;
+    if (v === undefined || seen.some((s) => Math.abs(s - v) < 1e-9)) continue;
+    seen.push(v);
+    out.push({ ...c, value: v });
+  }
+  return out.slice(0, 6);
+}
+
+/**
+ * Try the question with many random sets of numbers, like many students
+ * would get, and report anything that would go wrong.
+ */
+export function checkVersions(formula, distractors, variables, names, runs = 200) {
+  const cfg = Object.fromEntries(names.map((n) => [n, { min: 1, max: 10, decimals: 0, ...variables?.[n] }]));
+  let errors = 0, clashes = 0, maxDecimals = 0, lo = Infinity, hi = -Infinity;
+  const examples = [];
+  const wrong = (distractors || []).map((d) => d.trim()).filter(Boolean);
+  for (let i = 0; i < runs; i++) {
+    const vals = sampleVariables(cfg);
+    const r = evalFormula(formula, vals);
+    if (r.error) { errors++; continue; }
+    lo = Math.min(lo, r.value); hi = Math.max(hi, r.value);
+    const dp = (String(Number(r.value.toFixed(6))).split(".")[1] || "").length;
+    maxDecimals = Math.max(maxDecimals, dp);
+    const others = wrong.map((d) => evalFormula(d, vals).value).filter((v) => v !== undefined);
+    if (others.some((v) => Math.abs(v - r.value) < 1e-9)) clashes++;
+    if (examples.length < 3) examples.push({ values: vals, answer: r.value, wrong: others });
+  }
+  const ok = runs - errors;
+  return {
+    runs, errors, clashes, maxDecimals, examples,
+    min: ok ? lo : null, max: ok ? hi : null,
+    warnings: [
+      errors && `In ${Math.round((errors / runs) * 100)}% of versions the formula gives no number (e.g. dividing by zero) — narrow the ranges.`,
+      clashes && `In ${Math.round((clashes / runs) * 100)}% of versions a wrong answer equals the right one, so those students see fewer options.`,
+      maxDecimals > 3 && `Some answers have many decimals (up to ${maxDecimals}). Allow a margin below, or use round(…, 2) in the formula.`,
+    ].filter(Boolean),
+  };
+}
+
 /* ── Drafts ───────────────────────────────────────────────────────────── */
 
 export function newDraft(type) {
@@ -207,7 +353,7 @@ export function fromDraft(d) {
     case "calculated_mcq": {
       if (!prompt) return err("Write the question.");
       const names = detectVariables(prompt);
-      if (!names.length) return err("Put at least one number in curly brackets, e.g. {{a}}.");
+      if (!names.length) return err("Click at least one number in the question so it changes for each student.");
       if (!d.formula.trim()) return err("Write the formula for the correct answer.");
       const variables = Object.fromEntries(names.map((n) => [n, d.variables[n] || { min: 1, max: 10, decimals: 0 }]));
       for (const [n, v] of Object.entries(variables)) {
