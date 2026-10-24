@@ -61,6 +61,49 @@ def _safe_eval(expr, variables):
         return None
 
 
+def _decimals_for(tolerance):
+    """Enough decimal places that rounding an option never moves it outside
+    the marking tolerance."""
+    try:
+        t = float(tolerance)
+    except (TypeError, ValueError):
+        t = 0.01
+    if t <= 0:
+        return 6
+    return min(6, max(2, len(f"{t:.10f}".rstrip("0").split(".")[1]) + 1))
+
+
+def _fmt(value, places):
+    v = round(float(value), places)
+    return int(v) if v == int(v) else v
+
+
+def calc_options(content, variables, seed=None):
+    """Answer options for a calculated multichoice question: the correct value
+    plus each distractor formula, evaluated with the student's own numbers,
+    de-duplicated and shuffled. Empty list when there are no distractors (the
+    question is then answered by typing a number)."""
+    distractors = [d for d in (content.get('distractors') or []) if str(d).strip()]
+    if not distractors:
+        return []
+    places = _decimals_for(content.get('tolerance', 0.01))
+    correct = _safe_eval(content.get('formula', ''), variables)
+    if correct is None:
+        return []
+    values = [_fmt(correct, places)]
+    for d in distractors:
+        v = _safe_eval(d, variables)
+        if v is None:
+            continue
+        v = _fmt(v, places)
+        if all(abs(v - x) > 1e-9 for x in values):
+            values.append(v)
+    if len(values) < 2:
+        return []
+    random.Random(seed).shuffle(values)
+    return values
+
+
 # ─── Per-question-type validators ────────────────────────────────────────────
 
 def _validate_mcq(content, max_marks):
@@ -147,6 +190,11 @@ def _mark_mcq(content, answer, max_marks):
     return 0.0, ""
 
 
+def _norm_blank(text):
+    """Forgive case, extra spaces and a trailing full stop/comma."""
+    return " ".join(str(text or "").split()).strip(" .,;:!?").lower()
+
+
 def _mark_fill_blanks(content, answer, max_marks):
     blanks = content.get('blanks') or {}
     if not blanks:
@@ -154,7 +202,9 @@ def _mark_fill_blanks(content, answer, max_marks):
     student_blanks = answer.get('blanks') or {}
     correct = 0
     for key, val in blanks.items():
-        if str(student_blanks.get(key, "")).strip().lower() == str(val).strip().lower():
+        # A blank may list alternatives separated by "|", e.g. "colour|color"
+        accepted = {_norm_blank(a) for a in str(val).split("|") if _norm_blank(a)}
+        if _norm_blank(student_blanks.get(key, "")) in accepted:
             correct += 1
     return (correct / len(blanks)) * max_marks, ""
 
@@ -406,15 +456,37 @@ class StudentQuizSerializer(serializers.ModelSerializer):
         return max(scores) if scores else None
 
 
+def submission_deadline(submission):
+    """When a timed attempt runs out, or None for untimed quizzes."""
+    from datetime import timedelta
+    mins = submission.quiz.time_limit_mins
+    if not mins or not submission.started_at:
+        return None
+    return submission.started_at + timedelta(minutes=mins)
+
+
 class QuizSubmissionSerializer(serializers.ModelSerializer):
     score_percent = serializers.ReadOnlyField()
+    deadline = serializers.SerializerMethodField()
+    seconds_left = serializers.SerializerMethodField()
 
     class Meta:
         model = QuizSubmission
         fields = [
             'id', 'student', 'quiz', 'score', 'total_marks', 'status',
-            'started_at', 'finished_at', 'score_percent',
+            'started_at', 'finished_at', 'score_percent', 'deadline', 'seconds_left',
         ]
+
+    def get_deadline(self, obj):
+        d = submission_deadline(obj)
+        return d.isoformat() if d else None
+
+    def get_seconds_left(self, obj):
+        from django.utils import timezone
+        d = submission_deadline(obj)
+        if not d:
+            return None
+        return max(0, int((d - timezone.now()).total_seconds()))
         read_only_fields = [
             'student', 'score', 'total_marks', 'status', 'started_at', 'finished_at',
         ]

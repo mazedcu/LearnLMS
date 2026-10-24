@@ -58,6 +58,28 @@ function NativeQuizBlock({ lessonId, slug }) {
         <p style={{ marginBottom: "1.5rem", fontWeight: 600, color: isPassed ? "var(--clr-success)" : "var(--clr-warning)" }}>
           {isPassed ? "Congratulations, you passed!" : "You did not reach the pass mark."}
         </p>
+        {result.results?.length > 0 && (
+          <div style={{ textAlign: "left", maxWidth: 520, margin: "0 auto 1.5rem", border: "1px solid var(--clr-border)", borderRadius: "var(--radius-md)", overflow: "hidden", background: "var(--clr-surface)" }}>
+            {result.results.map((r) => {
+              const full = r.marks >= r.max_marks && r.max_marks > 0;
+              const some = !full && r.marks > 0;
+              const color = full ? "var(--clr-success)" : some ? "var(--clr-warning)" : "var(--clr-danger)";
+              return (
+                <div key={r.question} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.9rem", borderBottom: "1px solid var(--clr-border)", fontSize: "0.85rem" }}>
+                  <span style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: `${color}1a`, color, fontWeight: 700, flexShrink: 0 }}>
+                    {full ? "✓" : some ? "½" : "✗"}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <strong>Q{r.number}</strong> <span className="text-muted">{r.prompt.replace(/\{\{\s*\w+\s*\}\}|\[(slot|blank)\d+\]/g, "___")}</span>
+                  </span>
+                  <span style={{ color, fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {r.answered ? `${r.marks}/${r.max_marks}` : "Not answered"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {canRetry ? (
           <button className="btn btn-outline" onClick={() => setResult(null)}>
             <RotateCcw size={14} /> {attemptsLeft != null ? `Try Again (${attemptsLeft} left)` : "Try Again"}

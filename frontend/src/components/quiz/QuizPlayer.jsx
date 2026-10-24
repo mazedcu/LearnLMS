@@ -1,25 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { assessmentsAPI } from '../../api';
 import QuestionRenderer, { TYPES_EMBEDDING_PROMPT } from './QuestionRenderer';
 import { Timer, ChevronLeft, ChevronRight, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 /**
  * Merge the raw question from the quiz listing with any server-rendered
- * per-question state (e.g. calc-MCQ variables + interpolated prompt).
+ * per-question state (calc-MCQ variables, interpolated prompt, options).
  */
 function injectRendered(question, rendered) {
   if (!rendered || !Object.keys(rendered).length) return question;
   const merged = { ...question };
-  if (rendered.interpolated_prompt) {
-    merged.prompt = rendered.interpolated_prompt;
-  }
-  if (rendered.variables) {
-    merged._renderedVariables = rendered.variables;
-  }
+  if (rendered.interpolated_prompt) merged.prompt = rendered.interpolated_prompt;
+  if (rendered.variables) merged._renderedVariables = rendered.variables;
+  if (rendered.options) merged._options = rendered.options;
   return merged;
 }
 
 const QUESTIONS_PER_PAGE = 5;
+const SAVE_DELAY_MS = 700;
 
 export default function QuizPlayer({ quiz, onFinish }) {
   const [submission, setSubmission] = useState(null);
@@ -29,94 +27,114 @@ export default function QuizPlayer({ quiz, onFinish }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
   const [error, setError] = useState(null);
+  const [ready, setReady] = useState(false);
+
+  // Answers are saved as the student goes (so a reload or dropped
+  // connection doesn't lose them); these track what still needs sending.
+  const answersRef = useRef({});
+  const unsaved = useRef(new Set());
+  const saveTimers = useRef({});
+  const finishing = useRef(false);
 
   const rawQuestions = quiz.questions || [];
   const questions = rawQuestions.map(q => injectRendered(q, renderedMap[q.id]));
-  const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(questions.length / QUESTIONS_PER_PAGE));
   const startIdx = pageIndex * QUESTIONS_PER_PAGE;
   const pageQuestions = questions.slice(startIdx, startIdx + QUESTIONS_PER_PAGE);
+  const answeredCount = questions.filter(q => answers[q.id] !== undefined).length;
 
-  // Start Quiz -> then fetch rendered per-question state
+  // Start (or resume) the attempt, then load its questions, saved answers and time left
   useEffect(() => {
     let cancelled = false;
     assessmentsAPI.startQuiz(quiz.id)
-      .then(res => {
+      .then(async (res) => {
         if (cancelled) return;
         const sub = res.data;
         setSubmission(sub);
-        if (quiz.time_limit_mins) {
-          setTimeLeft(quiz.time_limit_mins * 60);
-        }
-        // Fetch pre-generated variables / prompts
-        return assessmentsAPI.getRenderedQuestions(sub.id).then(r => {
+        let secondsLeft = sub.seconds_left;
+        try {
+          const r = await assessmentsAPI.getRenderedQuestions(sub.id);
           if (cancelled) return;
           setRenderedMap(r.data.rendered_questions || {});
-        }).catch(() => {
-          // Non-fatal: if the endpoint is missing, calc-MCQ falls back to
-          // client-side generation (legacy path)
-        });
+          const saved = r.data.answers || {};
+          answersRef.current = saved;
+          setAnswers(saved);
+          if (r.data.seconds_left !== undefined) secondsLeft = r.data.seconds_left;
+        } catch { /* older server: start fresh */ }
+        if (secondsLeft !== null && secondsLeft !== undefined) setTimeLeft(secondsLeft);
+        setReady(true);
       })
       .catch(err => {
         if (cancelled) return;
         setError(err.response?.data?.detail || "Failed to start quiz.");
       });
-    return () => { cancelled = true; };
-  }, [quiz.id, quiz.time_limit_mins]);
+    return () => {
+      cancelled = true;
+      Object.values(saveTimers.current).forEach(clearTimeout);
+    };
+  }, [quiz.id]);
 
-  // Timer
-  useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) return;
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleFinish();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [timeLeft]);
+  const saveAnswer = useCallback(async (qId) => {
+    if (!submission) return;
+    clearTimeout(saveTimers.current[qId]);
+    const data = answersRef.current[qId];
+    if (data === undefined) return;
+    try {
+      await assessmentsAPI.submitAnswer(submission.id, qId, { answer_data: data });
+      unsaved.current.delete(qId);
+    } catch {
+      /* stays in `unsaved`; retried when finishing */
+    }
+  }, [submission]);
 
   const handleAnswer = (question, data) => {
-    // For calc-MCQ, attach the rendered variables so the backend can verify
-    // marking against the exact numbers the student saw on screen.
     let payload = data;
     if (question.question_type === 'calculated_mcq' && question._renderedVariables) {
       payload = { ...data, variables: question._renderedVariables };
     }
-    setAnswers(prev => ({ ...prev, [question.id]: payload }));
+    answersRef.current = { ...answersRef.current, [question.id]: payload };
+    setAnswers(answersRef.current);
+    unsaved.current.add(question.id);
+    clearTimeout(saveTimers.current[question.id]);
+    saveTimers.current[question.id] = setTimeout(() => saveAnswer(question.id), SAVE_DELAY_MS);
   };
+
+  const handleFinish = useCallback(async () => {
+    if (!submission || finishing.current) return;
+    finishing.current = true;
+    setIsSubmitting(true);
+    try {
+      // Send anything not saved yet (answers after the time limit are refused by the server)
+      for (const qId of Array.from(unsaved.current)) {
+        await saveAnswer(qId);
+      }
+      const res = await assessmentsAPI.finishQuiz(submission.id);
+      onFinish(res.data);
+    } catch (err) {
+      finishing.current = false;
+      setError(err.response?.data?.detail || "Failed to submit quiz. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [submission, saveAnswer, onFinish]);
+
+  // Countdown; submits automatically when time runs out
+  useEffect(() => {
+    if (timeLeft === null || !ready) return;
+    if (timeLeft <= 0) { handleFinish(); return; }
+    const t = setTimeout(() => setTimeLeft(s => (s === null ? s : s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [timeLeft, ready, handleFinish]);
 
   const handleNext = () => {
     if (pageIndex < totalPages - 1) {
       setPageIndex(pageIndex + 1);
+      window.scrollTo?.({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handlePrev = () => {
-    if (pageIndex > 0) {
-      setPageIndex(pageIndex - 1);
-    }
-  };
-
-  const handleFinish = async () => {
-    if (!submission) return;
-    setIsSubmitting(true);
-    try {
-      // Submit all answers
-      for (const [qId, data] of Object.entries(answers)) {
-        await assessmentsAPI.submitAnswer(submission.id, qId, { answer_data: data });
-      }
-      // Finish quiz
-      const res = await assessmentsAPI.finishQuiz(submission.id);
-      onFinish(res.data);
-    } catch (err) {
-      setError("Failed to submit quiz. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    if (pageIndex > 0) setPageIndex(pageIndex - 1);
   };
 
   const formatTime = (seconds) => {
@@ -135,7 +153,7 @@ export default function QuizPlayer({ quiz, onFinish }) {
     );
   }
 
-  if (!submission) {
+  if (!submission || !ready) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem' }}>
         <Loader2 className="spinner" size={40} style={{ margin: '0 auto' }} />
@@ -157,7 +175,9 @@ export default function QuizPlayer({ quiz, onFinish }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ marginBottom: '0.25rem' }}>{quiz.title}</h2>
-          <p className="text-muted">Page {pageIndex + 1} of {totalPages} · Questions {startIdx + 1}–{Math.min(startIdx + QUESTIONS_PER_PAGE, questions.length)} of {questions.length}</p>
+          <p className="text-muted">
+            {totalPages > 1 ? `Page ${pageIndex + 1} of ${totalPages} · ` : ""}{answeredCount} of {questions.length} answered
+          </p>
         </div>
         {timeLeft !== null && (
           <div className={`glass ${timeLeft < 60 ? 'text-danger' : ''}`} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '100px' }}>
@@ -202,13 +222,17 @@ export default function QuizPlayer({ quiz, onFinish }) {
         {pageIndex === totalPages - 1 ? (
           <button
             className="btn btn-primary"
-            onClick={handleFinish}
+            onClick={() => {
+              const left = questions.length - answeredCount;
+              if (left > 0 && !window.confirm(`You haven't answered ${left} question${left === 1 ? "" : "s"}. Finish anyway?`)) return;
+              handleFinish();
+            }}
             disabled={isSubmitting}
           >
             {isSubmitting ? <Loader2 className="spinner-sm" /> : <CheckCircle size={18} />} Finish Quiz
           </button>
         ) : (
-          <p className="text-muted" style={{ fontSize: '0.8rem' }}>Progress: {Math.round(((startIdx + pageQuestions.length) / questions.length) * 100)}%</p>
+          <p className="text-muted" style={{ fontSize: '0.8rem' }}>{answeredCount} of {questions.length} answered</p>
         )}
       </div>
     </div>

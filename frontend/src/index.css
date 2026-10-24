@@ -855,6 +855,26 @@ p  { color: var(--clr-text); }
 }
 .drop-slot.active { border-color: var(--clr-primary); background: var(--clr-primary-light); }
 .drop-slot.filled { border-style: solid; border-color: var(--clr-primary); background: rgba(79, 70, 229, 0.08); }
+button.drop-slot, button.draggable-item { font: inherit; border-style: dashed; }
+button.draggable-item { border: none; }
+button.drop-slot { color: var(--clr-heading); cursor: pointer; padding: 0 0.75rem; }
+.drop-slot.filled { border-style: solid; }
+.drop-slot.awaiting:not(.filled) { border-color: var(--clr-primary); background: var(--clr-primary-light); animation: slot-pulse 1.2s ease-in-out infinite; }
+@keyframes slot-pulse { 50% { box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); } }
+.draggable-item.picked { background: var(--clr-heading); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35); transform: translateY(-2px); }
+.words-bank {
+  padding: 0.75rem; background: var(--clr-bg); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-md); display: flex; flex-wrap: wrap; gap: 0.25rem;
+}
+.drop-zone.awaiting:not(.filled) { background: rgba(79, 70, 229, 0.2) !important; }
+.zone-chip {
+  border: none; border-radius: 6px; padding: 0.15rem 0.5rem; cursor: pointer;
+  background: var(--clr-primary); color: #fff; font: inherit; font-size: 0.75rem; font-weight: 600;
+}
+@media (max-width: 640px) {
+  .drop-slot { min-width: 96px; margin: 0.15rem 0.3rem; }
+  .draggable-item { padding: 0.5rem 0.9rem; }
+}
 
 /* Drag Drop Picture */
 .picture-canvas {

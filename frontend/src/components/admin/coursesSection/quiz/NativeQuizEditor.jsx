@@ -7,14 +7,21 @@ import QuestionCard from "./QuestionCard";
 import QuestionForm from "./QuestionForm";
 import QuizPreview from "./QuizPreview";
 
-function QuizCreateForm({ onSubmit, onCancel, mutation }) {
-  const [form, setForm] = useState({ title: "", passing_score: "70", time_limit_mins: "" });
+function QuizCreateForm({ onSubmit, onCancel, mutation, initial }) {
+  const [form, setForm] = useState({
+    title: initial?.title || "",
+    passing_score: String(initial?.passing_score ?? 70),
+    time_limit_mins: initial?.time_limit_mins ? String(initial.time_limit_mins) : "",
+    max_attempts: initial?.max_attempts ? String(initial.max_attempts) : "",
+  });
   const handleSubmit = () => {
     const payload = { title: form.title.trim() };
     const ps = Number(form.passing_score);
-    payload.passing_score = Number.isNaN(ps) ? 70 : ps;
+    payload.passing_score = Number.isNaN(ps) ? 70 : Math.min(100, Math.max(0, ps));
     const tl = Number(form.time_limit_mins);
-    if (!Number.isNaN(tl) && tl > 0) payload.time_limit_mins = tl;
+    payload.time_limit_mins = !Number.isNaN(tl) && tl > 0 ? tl : null;
+    const ma = Number(form.max_attempts);
+    payload.max_attempts = !Number.isNaN(ma) && ma > 0 ? Math.floor(ma) : 0;
     onSubmit(payload);
   };
   return (
@@ -30,7 +37,11 @@ function QuizCreateForm({ onSubmit, onCancel, mutation }) {
         </div>
         <div className="form-group" style={{ margin: 0, flex: "0 0 90px" }}>
           <label className="form-label" style={{ fontSize: "0.7rem" }}>Time (min)</label>
-          <input className="form-control" style={{ fontSize: "0.8rem" }} type="number" placeholder="optional" value={form.time_limit_mins} onChange={(e) => setForm((f) => ({ ...f, time_limit_mins: e.target.value }))} />
+          <input className="form-control" style={{ fontSize: "0.8rem" }} type="number" placeholder="no limit" value={form.time_limit_mins} onChange={(e) => setForm((f) => ({ ...f, time_limit_mins: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0, flex: "0 0 90px" }}>
+          <label className="form-label" style={{ fontSize: "0.7rem" }}>Attempts</label>
+          <input className="form-control" style={{ fontSize: "0.8rem" }} type="number" min="0" placeholder="unlimited" value={form.max_attempts} onChange={(e) => setForm((f) => ({ ...f, max_attempts: e.target.value }))} />
         </div>
         <button className="btn btn-primary btn-sm" onClick={handleSubmit} disabled={!form.title.trim() || mutation.isPending}>
           <Save size={13} /> {mutation.isPending ? "..." : "Save"}
@@ -39,7 +50,7 @@ function QuizCreateForm({ onSubmit, onCancel, mutation }) {
       </div>
       {mutation.isError && (
         <p style={{ fontSize: "0.75rem", color: "var(--clr-danger)", marginTop: "0.5rem" }}>
-          {apiErrorMessage(mutation.error, "Error creating quiz.")}
+          {apiErrorMessage(mutation.error, "Couldn't save the quiz.")}
         </p>
       )}
     </div>
@@ -138,6 +149,7 @@ export default function NativeQuizEditor({ lessonId, onClose, startCreating = 0,
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [previewQuiz, setPreviewQuiz] = useState(null);
   const [addingQuiz, setAddingQuiz] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState(null);
 
   // Parent can ask us to open the "create quiz" form (Course Builder's Quiz tile)
   useEffect(() => {
@@ -162,6 +174,15 @@ export default function NativeQuizEditor({ lessonId, onClose, startCreating = 0,
       onChanged?.();
       // Go straight to adding questions for the new quiz
       if (res?.data?.id) setActiveQuiz(res.data);
+    },
+  });
+
+  const updateQuiz = useMutation({
+    mutationFn: ({ id, payload }) => adminAPI.updateQuiz(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries(["quizzes-admin", lessonId]);
+      setEditingQuiz(null);
+      onChanged?.();
     },
   });
 
@@ -191,21 +212,31 @@ export default function NativeQuizEditor({ lessonId, onClose, startCreating = 0,
 
       {isLoading && <div className="spinner" style={{ margin: "1rem auto" }} />}
 
-      {quizzes.map((q) => (
+      {quizzes.map((q) => editingQuiz === q.id ? (
+        <div key={q.id} style={{ marginBottom: "0.5rem" }}>
+          <QuizCreateForm initial={q} mutation={updateQuiz}
+            onSubmit={(payload) => updateQuiz.mutate({ id: q.id, payload })}
+            onCancel={() => setEditingQuiz(null)} />
+        </div>
+      ) : (
         <div key={q.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "var(--clr-bg)", borderRadius: "var(--radius-sm)", marginBottom: "0.5rem", border: "1px solid var(--clr-border)" }}>
           <div>
             <p style={{ fontSize: "0.85rem", fontWeight: 600, margin: 0 }}>{q.title}</p>
             <p className="text-muted" style={{ fontSize: "0.7rem", margin: "0.125rem 0 0" }}>
-              Passing: {q.passing_score}% · {q.questions?.length || 0} questions
+              Pass: {q.passing_score}% · {q.questions?.length || 0} questions
               {q.time_limit_mins ? ` · ${q.time_limit_mins} min` : ""}
+              {` · ${q.max_attempts ? `${q.max_attempts} attempt${q.max_attempts === 1 ? "" : "s"}` : "unlimited attempts"}`}
             </p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button className="btn btn-outline btn-sm" style={{ padding: "0.3rem 0.6rem" }} onClick={() => setPreviewQuiz(q)}>
               <Eye size={12} /> Preview
             </button>
+            <button className="btn btn-outline btn-sm" style={{ padding: "0.3rem 0.6rem" }} onClick={() => setEditingQuiz(q.id)} title="Title, pass mark, time limit, attempts">
+              Settings
+            </button>
             <button className="btn btn-primary btn-sm" style={{ padding: "0.3rem 0.6rem" }} onClick={() => setActiveQuiz(q)}>
-              <Edit2 size={12} /> Manage
+              <Edit2 size={12} /> Questions
             </button>
             <button
               className="btn btn-danger btn-sm"

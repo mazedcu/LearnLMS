@@ -82,6 +82,10 @@ export default function CalculatedMcqEditor({ calcData, onChange }) {
         <p style={{ fontSize: "0.7rem", fontWeight: 700, marginBottom: "0.375rem" }}>
           Distractor Formulas (wrong answer options)
         </p>
+        <p className="text-muted" style={{ fontSize: "0.7rem", margin: "0 0 0.375rem" }}>
+          With at least one distractor, students pick from shuffled options (worked out with their own numbers).
+          With none, they type the answer.
+        </p>
         {distractors.map((d, i) => (
           <div key={i} style={{ display: "flex", gap: "0.375rem", alignItems: "center", marginBottom: "0.375rem" }}>
             <input

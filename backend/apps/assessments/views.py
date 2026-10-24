@@ -10,8 +10,19 @@ from rest_framework.exceptions import PermissionDenied
 from .serializers import (
     QuizSerializer, QuestionSerializer, StudentQuizSerializer,
     QuizSubmissionSerializer, QuestionResponseSerializer,
-    mark_question, generate_calc_variables, interpolate_prompt
+    mark_question, generate_calc_variables, interpolate_prompt,
+    calc_options, submission_deadline,
 )
+from datetime import timedelta
+
+# Answers arriving this long after a timed quiz ends are still accepted
+# (slow phone connections); later ones are not.
+TIME_GRACE = timedelta(seconds=90)
+
+
+def _time_is_up(submission):
+    deadline = submission_deadline(submission)
+    return bool(deadline and timezone.now() > deadline + TIME_GRACE)
 
 class StartQuizView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -53,6 +64,9 @@ class StartQuizView(APIView):
                 variables = generate_calc_variables(question.content, seed)
                 data['variables'] = variables
                 data['interpolated_prompt'] = interpolate_prompt(question.prompt, variables)
+                options = calc_options(question.content or {}, variables, seed)
+                if options:
+                    data['options'] = options
             rendered[q_id] = data
 
         submission = QuizSubmission.objects.create(
@@ -70,6 +84,8 @@ class SubmitAnswerView(APIView):
         submission = get_object_or_404(QuizSubmission, pk=submission_pk, student=request.user,
                                         status=QuizSubmission.Status.IN_PROGRESS)
         question = get_object_or_404(Question, pk=question_pk, quiz=submission.quiz, is_active=True)
+        if _time_is_up(submission):
+            return Response({'detail': "Time is up — this answer wasn't saved."}, status=status.HTTP_400_BAD_REQUEST)
 
         answer_data = request.data.get('answer_data', {})
 
@@ -107,12 +123,23 @@ class FinishQuizView(APIView):
         # Calculate total score
         total_marks = 0
         total_obtained = 0
-        
-        for question in submission.quiz.questions.filter(is_active=True):
+        results = []
+        responses = {r.question_id: r for r in QuestionResponse.objects.filter(submission=submission)}
+
+        for n, question in enumerate(submission.quiz.questions.filter(is_active=True).order_by('order'), start=1):
             total_marks += question.max_marks
-            resp = QuestionResponse.objects.filter(submission=submission, question=question).first()
-            if resp:
-                total_obtained += resp.marks_obtained
+            resp = responses.get(question.id)
+            got = resp.marks_obtained if resp else 0
+            total_obtained += got
+            # Per-question outcome for the result screen (no answer keys)
+            results.append({
+                'number': n,
+                'question': str(question.id),
+                'prompt': (question.prompt or '')[:140],
+                'marks': round(float(got), 2),
+                'max_marks': float(question.max_marks),
+                'answered': resp is not None,
+            })
         
         submission.total_marks = total_marks
         submission.score = total_obtained
@@ -121,6 +148,7 @@ class FinishQuizView(APIView):
         quiz = submission.quiz
         data = QuizSubmissionSerializer(submission).data
         data['passing_score'] = quiz.passing_score
+        data['results'] = results
         data['passed'] = submission.score_percent >= quiz.passing_score
         if quiz.max_attempts:
             used = QuizSubmission.objects.filter(student=request.user, quiz=quiz).count()
@@ -158,8 +186,14 @@ class RenderedQuestionsView(APIView):
             student=request.user,
             status=QuizSubmission.Status.IN_PROGRESS
         )
+        answers = {
+            str(r.question_id): r.answer_data
+            for r in QuestionResponse.objects.filter(submission=submission)
+        }
         return Response({
             'rendered_questions': submission.rendered_questions,
+            'answers': answers,
+            'seconds_left': QuizSubmissionSerializer(submission).data['seconds_left'],
         })
 
 

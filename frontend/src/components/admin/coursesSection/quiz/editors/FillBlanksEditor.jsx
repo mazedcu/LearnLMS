@@ -11,7 +11,8 @@ export default function FillBlanksEditor({ blanks, onChange }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
       <p className="text-muted" style={{ fontSize: "0.75rem", margin: 0 }}>
         Use <code>{"{{blank1}}"}</code>, <code>{"{{blank2}}"}</code> etc. in the prompt.
-        Define each blank's answer below:
+        Define each blank's answer below. Accept several answers with <code>|</code>, e.g. <code>colour|color</code>.
+        Case, extra spaces and a final full stop are ignored.
       </p>
       {blanks.map((b, i) => (
         <div key={i} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
