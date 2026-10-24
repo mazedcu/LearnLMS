@@ -41,10 +41,12 @@ function markFillBlanks(content, ans, max) {
   const userBlanks = ans.blanks || {};
   let correct = 0;
   const wrong = [];
+  // Same forgiveness as the server: case, extra spaces, final punctuation; "a|b" alternatives
+  const norm = (t) => String(t || "").split(/\s+/).join(" ").replace(/^[ .,;:!?]+|[ .,;:!?]+$/g, "").toLowerCase();
   for (const [k, v] of Object.entries(blanks)) {
-    const given = String(userBlanks[k] || "").trim().toLowerCase();
-    if (given === String(v).trim().toLowerCase()) correct++;
-    else wrong.push(`${k}: "${v}"`);
+    const accepted = String(v).split("|").map(norm).filter(Boolean);
+    if (accepted.includes(norm(userBlanks[k]))) correct++;
+    else wrong.push(`"${String(v).split("|")[0]}"`);
   }
   return {
     marks: (correct / total) * max,
@@ -109,18 +111,21 @@ function markDragDropWord(content, ans, max) {
 }
 
 function markDragDropImage(content, ans, max) {
+  // Decoy labels (no correct_zone) don't score; placing one on a spot costs that spot.
   const items = content.items || [];
-  if (!items.length) return { marks: 0, feedback: "" };
+  const scored = items.filter((it) => it.correct_zone);
+  if (!scored.length) return { marks: 0, feedback: "" };
   const placements = ans.placements || {};
+  const blocked = new Set(items.filter((it) => !it.correct_zone && placements[it.id]).map((it) => placements[it.id]));
   let correct = 0;
   const wrong = [];
-  for (const it of items) {
-    if (placements[it.id] === it.correct_zone) correct++;
-    else wrong.push(`${it.label} → ${it.correct_zone}`);
+  for (const it of scored) {
+    if (placements[it.id] === it.correct_zone && !blocked.has(it.correct_zone)) correct++;
+    else wrong.push(it.label);
   }
   return {
-    marks: (correct / items.length) * max,
-    feedback: wrong.length ? `Correct: ${wrong.join(", ")}` : "",
+    marks: (correct / scored.length) * max,
+    feedback: wrong.length ? `Not right yet: ${wrong.join(", ")}` : "",
   };
 }
 

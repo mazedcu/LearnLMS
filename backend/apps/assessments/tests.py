@@ -93,3 +93,56 @@ class QuizFlowTests(TestCase):
         result = self.c.post(f"/api/assessments/submissions/{sub['id']}/finish/").json()
         self.assertEqual([(r['number'], r['marks'], r['answered']) for r in result['results']], [(1, 1.0, True), (2, 0.0, False)])
         self.assertNotIn('correct_answer', str(result))
+
+
+class AuthoringSupportTests(TestCase):
+    def setUp(self):
+        import tempfile
+        from django.test import override_settings
+        self.media = tempfile.mkdtemp(prefix='lms-quiz-img-')
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+        admin = CustomUser.objects.create_user(email='a@x.com', username='a', password='pw', role='admin')
+        course = Course.objects.create(title='C', slug='c', instructor=admin, status='published')
+        lesson = Lesson.objects.create(module=Module.objects.create(course=course, title='M', order=1),
+                                       title='L', order=1, is_published=True)
+        self.quiz = Quiz.objects.create(lesson=lesson, title='Q')
+        self.c = APIClient(); self.c.force_authenticate(admin)
+
+    def tearDown(self):
+        import shutil
+        self.override.disable()
+        shutil.rmtree(self.media, ignore_errors=True)
+
+    def add(self, prompt):
+        return self.c.post(f'/api/assessments/quizzes/{self.quiz.id}/questions/', {
+            'question_type': 'mcq', 'prompt': prompt, 'max_marks': 1,
+            'content': {'options': ['a', 'b'], 'correct_answer': 'a'}}, format='json').json()
+
+    def test_new_questions_append_and_can_be_reordered(self):
+        q1, q2, q3 = self.add('one'), self.add('two'), self.add('three')
+        self.assertEqual([q1['order'], q2['order'], q3['order']], [1, 2, 3])
+        r = self.c.post(f'/api/assessments/quizzes/{self.quiz.id}/questions/reorder/',
+                        {'questions': [q3['id'], q1['id'], q2['id']]}, format='json')
+        self.assertEqual(r.status_code, 204)
+        listed = self.c.get(f'/api/assessments/quizzes/{self.quiz.id}/questions/').json()
+        self.assertEqual([q['prompt'] for q in listed], ['three', 'one', 'two'])
+
+    def test_image_upload_accepts_pictures_only(self):
+        import io
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buf = io.BytesIO(); Image.new('RGB', (40, 20), 'red').save(buf, 'PNG')
+        r = self.c.post('/api/assessments/images/', {'image': SimpleUploadedFile('d.png', buf.getvalue(), 'image/png')}, format='multipart')
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual((r.json()['width'], r.json()['height']), (40, 20))
+        self.assertTrue(r.json()['url'].startswith('/media/quiz_images/'))
+        r = self.c.post('/api/assessments/images/', {'image': SimpleUploadedFile('x.png', b'not an image', 'image/png')}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+
+    def test_distractor_labels_do_not_count_but_cost_the_spot(self):
+        content = {'zones': [{'id': 'z1'}, {'id': 'z2'}],
+                   'items': [{'id': 'i1', 'correct_zone': 'z1'}, {'id': 'i2', 'correct_zone': 'z2'}, {'id': 'd1', 'correct_zone': ''}]}
+        q = Question(question_type='drag_drop_image', content=content, max_marks=2)
+        self.assertEqual(mark_question(q, {'placements': {'i1': 'z1', 'i2': 'z2'}})[0], 2)
+        self.assertEqual(mark_question(q, {'placements': {'i1': 'z1', 'i2': 'z2', 'd1': 'z2'}})[0], 1)

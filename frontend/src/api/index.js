@@ -76,6 +76,8 @@ export const adminAPI = {
   createQuestion: (quizId, data) => api.post(`/assessments/quizzes/${quizId}/questions/`, data),
   updateQuestion: (id, data) => api.patch(`/assessments/questions/${id}/`, data),
   deleteQuestion: (id) => api.delete(`/assessments/questions/${id}/`),
+  reorderQuestions: (quizId, questions) => api.post(`/assessments/quizzes/${quizId}/questions/reorder/`, { questions }),
+  uploadQuizImage: (formData) => api.post('/assessments/images/', formData),
 };
 
 // Course Builder (teacher)

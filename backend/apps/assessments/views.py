@@ -262,10 +262,65 @@ class QuestionListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrInstructor]
 
     def get_queryset(self):
-        return Question.objects.filter(quiz_id=self.kwargs['quiz_pk'])
+        return Question.objects.filter(quiz_id=self.kwargs['quiz_pk']).order_by('order', 'id')
 
     def perform_create(self, serializer):
-        serializer.save(quiz_id=self.kwargs['quiz_pk'])
+        extra = {}
+        if not self.request.data.get('order'):
+            from django.db.models import Max
+            last = Question.objects.filter(quiz_id=self.kwargs['quiz_pk']).aggregate(m=Max('order'))['m'] or 0
+            extra['order'] = last + 1
+        serializer.save(quiz_id=self.kwargs['quiz_pk'], **extra)
+
+
+class QuestionReorderView(APIView):
+    """POST {"questions": [id, ...]} — renumber a quiz's questions in that order."""
+    permission_classes = [IsAdminOrInstructor]
+
+    def post(self, request, quiz_pk):
+        quiz = get_object_or_404(Quiz, pk=quiz_pk)
+        ids = [str(i) for i in (request.data.get('questions') or [])]
+        existing = {str(q) for q in quiz.questions.values_list('id', flat=True)}
+        if set(ids) != existing or len(ids) != len(existing):
+            return Response({'detail': 'List every question in this quiz exactly once.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        from django.db import transaction
+        with transaction.atomic():
+            for i, qid in enumerate(ids, start=1):
+                Question.objects.filter(pk=qid).update(order=i)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class QuizImageUploadView(APIView):
+    """POST multipart {image} — store a picture for a quiz question and return its URL."""
+    permission_classes = [IsAdminOrInstructor]
+    MAX_BYTES = 8 * 1024 * 1024
+    ALLOWED = {'JPEG': 'jpg', 'PNG': 'png', 'GIF': 'gif', 'WEBP': 'webp'}
+
+    def post(self, request):
+        import uuid
+        from PIL import Image, UnidentifiedImageError
+        from django.core.files.storage import default_storage
+
+        upload = request.FILES.get('image')
+        if not upload:
+            return Response({'detail': 'Choose an image to upload.'}, status=status.HTTP_400_BAD_REQUEST)
+        if upload.size > self.MAX_BYTES:
+            return Response({'detail': 'Images must be 8 MB or smaller.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            img = Image.open(upload)
+            fmt = img.format
+            width, height = img.size
+            img.verify()
+        except (UnidentifiedImageError, OSError, SyntaxError):
+            return Response({'detail': "That file isn't a picture we can use (JPG, PNG, GIF or WebP)."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if fmt not in self.ALLOWED:
+            return Response({'detail': 'Use a JPG, PNG, GIF or WebP picture.'}, status=status.HTTP_400_BAD_REQUEST)
+        upload.seek(0)
+        name = default_storage.save(f'quiz_images/{uuid.uuid4().hex}.{self.ALLOWED[fmt]}', upload)
+        return Response({'url': default_storage.url(name), 'width': width, 'height': height},
+                        status=status.HTTP_201_CREATED)
 
 class QuestionDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Update or delete a question (admin/instructor)."""

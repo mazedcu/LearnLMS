@@ -159,6 +159,9 @@ def _validate_drag_drop_image(content, max_marks):
         raise serializers.ValidationError("Drag-drop image needs at least one zone.")
     if not content.get('items'):
         raise serializers.ValidationError("Drag-drop image needs at least one item.")
+    zone_ids = {z.get('id') for z in content.get('zones') or []}
+    if not any(it.get('correct_zone') in zone_ids for it in content.get('items') or []):
+        raise serializers.ValidationError("Give at least one label a correct spot on the picture.")
 
 
 _VALIDATORS = {
@@ -262,14 +265,23 @@ def _mark_drag_drop_word(content, answer, max_marks):
 
 
 def _mark_drag_drop_image(content, answer, max_marks):
+    # Labels without a correct_zone are distractors: they don't count towards
+    # the score, but putting one on the picture costs the mark for that spot.
     items = content.get('items') or []
-    if not items:
+    scored = [it for it in items if it.get('correct_zone')]
+    if not scored:
         return 0.0, ""
     placements = answer.get('placements') or {}
+    taken_by_distractor = {
+        placements.get(it.get('id')) for it in items
+        if not it.get('correct_zone') and placements.get(it.get('id'))
+    }
     correct = sum(
-        1 for item in items if placements.get(item.get('id')) == item.get('correct_zone')
+        1 for it in scored
+        if placements.get(it.get('id')) == it.get('correct_zone')
+        and it.get('correct_zone') not in taken_by_distractor
     )
-    return (correct / len(items)) * max_marks, ""
+    return (correct / len(scored)) * max_marks, ""
 
 
 _MARKERS = {

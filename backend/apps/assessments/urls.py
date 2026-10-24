@@ -4,6 +4,7 @@ from .views import (
     FinishQuizView, SubmissionDetailView, RenderedQuestionsView,
     QuizCreateView, QuizDetailView,
     QuestionListCreateView, QuestionDetailView,
+    QuestionReorderView, QuizImageUploadView,
 )
 
 app_name = 'assessments'
@@ -17,6 +18,8 @@ urlpatterns = [
     
     # Question CRUD (admin/instructor)
     path('quizzes/<uuid:quiz_pk>/questions/', QuestionListCreateView.as_view(), name='question-list-create'),
+    path('quizzes/<uuid:quiz_pk>/questions/reorder/', QuestionReorderView.as_view(), name='question-reorder'),
+    path('images/', QuizImageUploadView.as_view(), name='quiz-image-upload'),
     path('questions/<uuid:question_pk>/', QuestionDetailView.as_view(), name='question-detail'),
     
     # Quiz interaction (students)

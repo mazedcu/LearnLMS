@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { GripVertical, Eye, EyeOff, Pencil, Trash2, ArrowUp, ArrowDown, UploadCloud, Lock, Clock } from "lucide-react";
 import { adminAPI, builderAPI, lessonsAPI } from "../../api";
 import { BlockRenderer } from "../lesson/LessonBlocks";
-import NativeQuizEditor from "../admin/coursesSection/quiz/NativeQuizEditor";
+import QuizStudio from "./quiz/QuizStudio";
 import BlockForm from "./BlockForm";
 import {
   BLOCK_META, ACCEPT_ANY, TypeIcon, Switch, RowMenu, describeBlock,
@@ -456,7 +456,7 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
           </div>
         </div>
         <div className="cb-quiz-area">
-          <NativeQuizEditor key={lesson.id} lessonId={lesson.id} startCreating={quizStart} onChanged={onLessonChanged} />
+          <QuizStudio key={lesson.id} lessonId={lesson.id} startCreating={quizStart} onChanged={onLessonChanged} toast={toast} />
         </div>
       </section>
     </div>
