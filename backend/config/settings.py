@@ -125,8 +125,8 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
+    # No pagination: every screen expects the full list (users, videos,
+    # questions, payments…). With pagination on, lists silently stopped at 20.
     # nginx sits in front of gunicorn: take the client IP from X-Forwarded-For
     "NUM_PROXIES": env.int("NUM_PROXIES", default=1),
     # Per-IP limits are generous because a whole class may share one school IP;

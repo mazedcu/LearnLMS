@@ -3,7 +3,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .models import CustomUser
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from .models import CustomUser, UserRole
 from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer, TokenPairSerializer
 from apps.common.permissions import IsAdmin
 from rest_framework.throttling import ScopedRateThrottle
@@ -74,9 +76,39 @@ class UserUpdateView(generics.UpdateAPIView):
 
     def patch(self, request, *args, **kwargs):
         user = self.get_object()
-        allowed = {k: v for k, v in request.data.items() if k in ('role', 'is_active', 'first_name', 'last_name')}
-        for field, value in allowed.items():
-            setattr(user, field, value)
+        data = request.data
+        errors = {}
+        is_self = user.pk == request.user.pk
+
+        if 'role' in data:
+            if data['role'] not in UserRole.values:
+                errors['role'] = f"Role must be one of: {', '.join(UserRole.values)}."
+            elif is_self and data['role'] != UserRole.ADMIN:
+                errors['role'] = "You can't remove your own admin role."
+            else:
+                user.role = data['role']
+
+        if 'is_active' in data:
+            value = data['is_active']
+            active = value if isinstance(value, bool) else str(value).lower() in ('true', '1', 'yes')
+            if is_self and not active:
+                errors['is_active'] = "You can't disable your own account."
+            else:
+                user.is_active = active
+
+        for field in ('first_name', 'last_name'):
+            if field in data:
+                setattr(user, field, str(data[field])[:150])
+
+        if data.get('password'):
+            try:
+                validate_password(data['password'], user)
+                user.set_password(data['password'])
+            except DjangoValidationError as exc:
+                errors['password'] = ' '.join(exc.messages)
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
         user.save()
         return Response(UserProfileSerializer(user).data)
 
@@ -85,6 +117,11 @@ class UserDestroyView(generics.DestroyAPIView):
     """Admin only — delete a user."""
     queryset = CustomUser.objects.all()
     permission_classes = [IsAdmin]
+
+    def destroy(self, request, *args, **kwargs):
+        if self.get_object().pk == request.user.pk:
+            return Response({'detail': "You can't delete your own account."}, status=status.HTTP_400_BAD_REQUEST)
+        return super().destroy(request, *args, **kwargs)
 
 
 class PlatformStatsView(APIView):

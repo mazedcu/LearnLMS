@@ -42,9 +42,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             "id", "email", "username", "first_name", "last_name",
-            "full_name", "role", "avatar", "bio", "phone", "date_joined",
+            "full_name", "role", "avatar", "bio", "phone", "date_joined", "is_active",
         ]
-        read_only_fields = ["id", "email", "role", "date_joined"]
+        read_only_fields = ["id", "email", "role", "date_joined", "is_active"]
 
 
 class TokenPairSerializer(serializers.Serializer):

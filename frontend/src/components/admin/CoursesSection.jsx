@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, BookOpen, Eye, ExternalLink, Trash2 } from "lucide-react";
+import { Plus, Edit2, BookOpen, Eye, ExternalLink, Trash2, BarChart2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { coursesAPI, adminAPI } from "../../api";
 import CourseCreateForm from "./coursesSection/CourseCreateForm";
 
@@ -37,6 +38,9 @@ function CourseListItem({ course, onManage, onDelete }) {
         >
           <ExternalLink size={13} />
         </a>
+        <Link to={`/dashboard/instructor/courses/${course.slug}/analytics`} className="btn btn-outline btn-sm" title="Course analytics">
+          <BarChart2 size={13} />
+        </Link>
         <button className="btn btn-primary btn-sm" onClick={onManage}>
           <Edit2 size={13} /> Build content
         </button>

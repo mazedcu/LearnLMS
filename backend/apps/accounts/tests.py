@@ -48,3 +48,49 @@ class LoginLockoutTests(TestCase):
         for _ in range(security.LOCK_AFTER):
             self.login('wrong', email='attacker-target@x.com')
         self.assertEqual(self.login('right-pass-1').status_code, 200)
+
+
+class ListsAreCompleteTests(TestCase):
+    def test_admin_user_list_is_not_cut_at_20(self):
+        admin = CustomUser.objects.create_user(email='a@x.com', username='a', password='pw-123456', role='admin')
+        CustomUser.objects.bulk_create([
+            CustomUser(email=f'u{i}@x.com', username=f'u{i}', role='student') for i in range(30)
+        ])
+        c = APIClient(); c.force_authenticate(admin)
+        data = c.get('/api/auth/users/').json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 31)
+
+
+class UserAdminTests(TestCase):
+    def setUp(self):
+        self.admin = CustomUser.objects.create_user(email='a@x.com', username='a', password='pw-123456', role='admin')
+        self.student = CustomUser.objects.create_user(email='s@x.com', username='s', password='old-pass-123', role='student')
+        self.c = APIClient(); self.c.force_authenticate(self.admin)
+
+    def test_list_includes_active_status(self):
+        users = self.c.get('/api/auth/users/').json()
+        self.assertTrue(all(u['is_active'] is True for u in users))
+
+    def test_invalid_role_rejected(self):
+        r = self.c.patch(f'/api/auth/users/{self.student.id}/', {'role': 'wizard'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.student.refresh_from_db(); self.assertEqual(self.student.role, 'student')
+
+    def test_admin_cannot_lock_themselves_out(self):
+        self.assertEqual(self.c.patch(f'/api/auth/users/{self.admin.id}/', {'role': 'student'}, format='json').status_code, 400)
+        self.assertEqual(self.c.patch(f'/api/auth/users/{self.admin.id}/', {'is_active': False}, format='json').status_code, 400)
+        self.assertEqual(self.c.delete(f'/api/auth/users/{self.admin.id}/delete/').status_code, 400)
+
+    def test_admin_can_set_a_student_password(self):
+        self.assertEqual(self.c.patch(f'/api/auth/users/{self.student.id}/', {'password': '123'}, format='json').status_code, 400)
+        r = self.c.patch(f'/api/auth/users/{self.student.id}/', {'password': 'New-Pass-2026!'}, format='json')
+        self.assertEqual(r.status_code, 200)
+        r = APIClient().post('/api/auth/login/', {'email': 's@x.com', 'password': 'New-Pass-2026!'}, format='json')
+        self.assertEqual(r.status_code, 200)
+
+    def test_disable_then_enable(self):
+        self.c.patch(f'/api/auth/users/{self.student.id}/', {'is_active': False}, format='json')
+        self.student.refresh_from_db(); self.assertFalse(self.student.is_active)
+        self.c.patch(f'/api/auth/users/{self.student.id}/', {'is_active': True}, format='json')
+        self.student.refresh_from_db(); self.assertTrue(self.student.is_active)

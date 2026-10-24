@@ -40,13 +40,14 @@ class ModuleSerializer(serializers.ModelSerializer):
 
 class CourseListSerializer(serializers.ModelSerializer):
     instructor_name = serializers.CharField(source='instructor.full_name', read_only=True)
+    instructor_id   = serializers.CharField(source='instructor.id', read_only=True)
     lesson_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
         fields = [
             'id', 'title', 'slug', 'short_description', 'thumbnail',
-            'price', 'is_free', 'status', 'instructor_name',
+            'price', 'is_free', 'status', 'instructor_name', 'instructor_id',
             'lesson_count', 'language', 'created_at',
         ]
 

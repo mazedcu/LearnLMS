@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import CourseCreateForm from "../../components/admin/coursesSection/CourseCreateForm";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/Navbar";
 import { coursesAPI } from "../../api";
@@ -369,6 +370,8 @@ export default function InstructorDashboard() {
   const myCourses = courses.filter(c => c.instructor_id === user?.id || !c.instructor_id);
 
   const [editingCourse, setEditingCourse] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="page">
@@ -385,8 +388,14 @@ export default function InstructorDashboard() {
             <h2 style={{ marginBottom: "0.25rem" }}>Instructor Dashboard</h2>
             <p className="text-muted">Manage your courses and review student submissions</p>
           </div>
-          <Link to="/courses/create" className="btn btn-primary"><PlusCircle size={16} /> New Course</Link>
+          <button className="btn btn-primary" onClick={() => setCreating(c => !c)}><PlusCircle size={16} /> New Course</button>
         </div>
+
+        {creating && (
+          <div style={{ marginBottom: "2rem" }}>
+            <CourseCreateForm onDone={(created) => { setCreating(false); if (created?.slug) navigate(`/dashboard/admin/courses/${created.slug}`); }} />
+          </div>
+        )}
 
         <div className="grid-3" style={{ marginBottom: "2.5rem" }}>
           {[
@@ -409,7 +418,7 @@ export default function InstructorDashboard() {
           <div style={{ textAlign: "center", padding: "3rem", border: "1px dashed var(--clr-border)", borderRadius: "var(--radius-md)" }}>
             <BookOpen size={40} style={{ opacity: 0.3, margin: "0 auto 1rem" }} />
             <p className="text-muted">No courses yet.</p>
-            <Link to="/courses/create" className="btn btn-primary" style={{ marginTop: "1rem" }}>Create Your First Course</Link>
+            <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={() => setCreating(true)}>Create Your First Course</button>
           </div>
         ) : (
           <div className="grid-3">
