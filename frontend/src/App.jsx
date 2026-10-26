@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import AppBanner from './components/AppBanner';
 import { lazy, Suspense } from 'react';
 
 const HomePage            = lazy(() => import('./pages/HomePage'));
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            <AppBanner />
           </BrowserRouter>
         </AuthProvider>
       </QueryClientProvider>

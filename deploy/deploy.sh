@@ -162,6 +162,21 @@ npm ci --no-audit --no-fund --loglevel=error
 rm -rf dist.new
 npx vite build --outDir dist.new --emptyOutDir >/dev/null
 [ -f dist.new/index.html ] || die "Frontend build produced no index.html; the live site was not changed."
+# Android app: newest signed release from GitHub, served at /app/learnwithhasan.apk
+mkdir -p dist.new/app
+APK_URL="https://github.com/mazedcu/LearnLMS/releases/latest/download/learnwithhasan.apk"
+if curl -fsSL --max-time 180 -o dist.new/app/learnwithhasan.apk.part "$APK_URL" \
+   && [ "$(head -c 2 dist.new/app/learnwithhasan.apk.part)" = "PK" ]; then
+  mv dist.new/app/learnwithhasan.apk.part dist.new/app/learnwithhasan.apk
+  ok "Android app ($(du -h dist.new/app/learnwithhasan.apk | cut -f1)) at /app/learnwithhasan.apk"
+else
+  rm -f dist.new/app/learnwithhasan.apk.part
+  if [ -f dist/app/learnwithhasan.apk ]; then
+    cp dist/app/learnwithhasan.apk dist.new/app/ && warn "couldn't fetch the newest Android app; kept the current one"
+  else
+    warn "no Android app release yet — the download link stays hidden"
+  fi
+fi
 # Keep the previous build as dist.prev so rollback.sh can put it back instantly
 rm -rf dist.prev
 [ -d dist ] && mv dist dist.prev

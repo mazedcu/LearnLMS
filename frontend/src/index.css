@@ -1191,3 +1191,11 @@ button.drop-slot { color: var(--clr-heading); cursor: pointer; padding: 0 0.75re
   box-shadow: 0 4px 12px rgba(79,70,229,0.35);
   transform: translateX(2px);
 }
+
+/* ── Android app banner ── */
+.app-banner { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 900; display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.6rem 0.6rem 0.75rem; border-radius: 14px; background: #111827; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.25); max-width: 520px; margin: 0 auto; }
+.app-banner-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--clr-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.app-banner-text { display: flex; flex-direction: column; line-height: 1.25; flex: 1; min-width: 0; font-size: 0.88rem; }
+.app-banner-text small { color: rgba(255,255,255,0.65); font-size: 0.75rem; }
+.app-banner-get { background: #fff; color: #111827; font-weight: 700; font-size: 0.82rem; padding: 0.5rem 0.8rem; border-radius: 10px; text-decoration: none; white-space: nowrap; }
+.app-banner-close { background: none; border: none; color: rgba(255,255,255,0.6); padding: 0.35rem; cursor: pointer; display: inline-flex; border-radius: 8px; }
