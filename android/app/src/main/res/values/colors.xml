@@ -1,0 +1,8 @@
+<resources>
+    <color name="brand">#4F46E5</color>
+    <color name="brand_dark">#3730A3</color>
+    <color name="ic_launcher_background">#4F46E5</color>
+    <color name="page">#F9FAFB</color>
+    <color name="text">#111827</color>
+    <color name="muted">#6B7280</color>
+</resources>

@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">LearnwithHasan</string>
+    <string name="offline_title">You\'re offline</string>
+    <string name="offline_body">Check your internet connection, then try again. Your progress is saved.</string>
+    <string name="error_title">Couldn\'t open the page</string>
+    <string name="error_body">The site didn\'t answer. Please try again in a moment.</string>
+    <string name="try_again">Try again</string>
+    <string name="no_app_for_link">No app on this phone can open this link.</string>
+    <string name="press_back_again">Press back again to exit</string>
+</resources>

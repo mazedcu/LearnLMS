@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Only the LMS itself may be loaded over plain http (in case HTTPS isn't set up yet). -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">learnwithhasan.xyz</domain>
+    </domain-config>
+</network-security-config>
