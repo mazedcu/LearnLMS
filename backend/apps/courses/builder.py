@@ -144,3 +144,20 @@ class CourseReorderView(APIView):
                     Lesson.objects.filter(pk=lid).update(module_id=mid, order=i)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CoursePublishLessonsView(APIView):
+    """Publish every draft lesson in the course (or in one module).
+
+    Body (optional): {"module": <module id>}
+    """
+    permission_classes = [IsInstructorOrAdmin]
+
+    def post(self, request, slug):
+        course = _course_for_editor(request, slug)
+        lessons = Lesson.objects.filter(module__course=course, is_published=False)
+        module_id = request.data.get('module')
+        if module_id:
+            lessons = lessons.filter(module_id=module_id)
+        count = lessons.update(is_published=True)
+        return Response({'published': count})

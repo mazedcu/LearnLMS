@@ -7,13 +7,18 @@
   --cb-top-h: 60px;
   height: 100vh;
   display: grid;
-  grid-template-rows: var(--cb-top-h) 1fr;
+  grid-template-rows: var(--cb-top-h) auto 1fr;
   grid-template-columns: var(--cb-outline-w) 1fr;
-  grid-template-areas: "top top" "outline main";
+  grid-template-areas: "top top" "notice notice" "outline main";
   background: var(--clr-bg);
   color: var(--clr-text);
   overflow: hidden;
 }
+
+/* ── Visibility warning (drafts students can't see) ── */
+.cb-visibility { grid-area: notice; display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 1rem; background: #FFFBEB; border-bottom: 1px solid #FCD34D; color: #92400E; font-size: 0.85rem; line-height: 1.4; }
+.cb-visibility span { flex: 1; min-width: 0; }
+.cb-visibility .cb-btn { flex-shrink: 0; padding: 0.35rem 0.8rem; font-size: 0.82rem; }
 
 /* ── Top bar ─────────────────────────────────── */
 .cb-top {
@@ -366,7 +371,7 @@
   .cb-add-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 900px) {
-  .cb-shell { grid-template-columns: 1fr; grid-template-areas: "top" "main"; }
+  .cb-shell { grid-template-columns: 1fr; grid-template-areas: "top" "notice" "main"; }
   .cb-outline {
     position: fixed; top: var(--cb-top-h); left: 0; bottom: 0; z-index: 80;
     width: min(340px, 88vw); transform: translateX(-100%); transition: transform 0.25s ease;

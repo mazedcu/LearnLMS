@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, Settings, PanelLeft, BookOpen, FolderPlus } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Settings, PanelLeft, BookOpen, FolderPlus } from "lucide-react";
 import { adminAPI, builderAPI, coursesAPI } from "../api";
 import OutlinePanel from "../components/builder/OutlinePanel";
 import LessonPanel from "../components/builder/LessonPanel";
@@ -108,6 +108,12 @@ export default function CourseBuilder() {
     onError: fail("Couldn't change the course status."),
   });
 
+  const publishLessons = useMutation({
+    mutationFn: () => builderAPI.publishLessons(slug),
+    onSuccess: (r) => { refresh(); toast(`${r.data.published} lesson${r.data.published === 1 ? "" : "s"} published — students can see them now`); },
+    onError: fail("Couldn't publish the lessons."),
+  });
+
   const confirmDeleteModule = (mod) => {
     const n = mod.lessons.length;
     if (confirm(`Delete module "${mod.title}"${n ? ` and its ${n} lesson${n > 1 ? "s" : ""}` : ""}? This can't be undone.`)) deleteModule.mutate(mod.id);
@@ -127,6 +133,8 @@ export default function CourseBuilder() {
   }
 
   const isLive = course?.status === "published";
+  const draftLessons = allLessons.filter((l) => !l.is_published);
+  const hiddenModules = modules.filter((m) => m.lessons.length && m.lessons.every((l) => !l.is_published));
 
   return (
     <div className={`cb-shell${outlineOpen ? " outline-open" : ""}`}>
@@ -153,6 +161,27 @@ export default function CourseBuilder() {
           </button>
         </div>
       </header>
+
+      {course && (!isLive || draftLessons.length > 0) && (
+        <div className="cb-visibility" role="status">
+          <EyeOff size={16} style={{ flexShrink: 0 }} />
+          {!isLive ? (
+            <span><b>Students can't see this course</b> — it's a draft.</span>
+          ) : (
+            <span>
+              <b>{draftLessons.length} lesson{draftLessons.length === 1 ? " is a draft" : "s are drafts"}</b>, so students can't see {draftLessons.length === 1 ? "it" : "them"}
+              {hiddenModules.length > 0 && <> — {hiddenModules.length === modules.length ? "every module looks empty to them" : `${hiddenModules.map((m) => `“${m.title}”`).join(", ")} look${hiddenModules.length === 1 ? "s" : ""} empty to them`}</>}.
+            </span>
+          )}
+          {!isLive ? (
+            <button className="cb-btn cb-btn-primary" onClick={() => togglePublish.mutate()} disabled={togglePublish.isPending}>Publish course</button>
+          ) : (
+            <button className="cb-btn cb-btn-primary" onClick={() => publishLessons.mutate()} disabled={publishLessons.isPending}>
+              {publishLessons.isPending ? "Publishing…" : `Publish ${draftLessons.length === 1 ? "it" : `all ${draftLessons.length}`}`}
+            </button>
+          )}
+        </div>
+      )}
 
       {outlineOpen && <div className="cb-outline-backdrop" onClick={() => setOutlineOpen(false)} />}
       <nav className="cb-outline" aria-label="Course outline">

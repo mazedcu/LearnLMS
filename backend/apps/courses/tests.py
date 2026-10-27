@@ -91,3 +91,25 @@ class CourseBuilderTests(TestCase):
         lesson = Lesson.objects.get(title='New')
         self.assertEqual(r.json()['id'], str(lesson.id))
         self.assertEqual(lesson.order, 3)  # appended after A and B
+
+
+class PublishLessonsTests(CourseBuilderTests):
+    """Draft lessons are invisible to enrolled students until published."""
+
+    def test_publish_all_drafts_makes_them_visible(self):
+        from apps.courses.models import Enrollment
+        Enrollment.objects.create(student=self.student, course=self.course)
+        sc = APIClient(); sc.force_authenticate(self.student)
+        titles = lambda: [l['title'] for m in sc.get('/api/courses/chem/').json()['modules'] for l in m['lessons']]
+        self.assertEqual(titles(), ['A', 'C'])
+        r = self.client.post('/api/courses/chem/publish-lessons/', {}, format='json')
+        self.assertEqual(r.json()['published'], 1)
+        self.assertEqual(titles(), ['A', 'B', 'C'])
+
+    def test_publish_one_module_and_students_cannot(self):
+        Lesson.objects.filter(pk=self.c.pk).update(is_published=False)
+        r = self.client.post('/api/courses/chem/publish-lessons/', {'module': str(self.m2.id)}, format='json')
+        self.assertEqual(r.json()['published'], 1)
+        self.b.refresh_from_db(); self.assertFalse(self.b.is_published)
+        sc = APIClient(); sc.force_authenticate(self.student)
+        self.assertEqual(sc.post('/api/courses/chem/publish-lessons/', {}, format='json').status_code, 403)

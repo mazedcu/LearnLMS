@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { assessmentsAPI, coursesAPI, lessonsAPI } from "../api";
 import Navbar from "../components/Navbar";
-import { Lock, CheckCircle, Circle, ChevronRight, RotateCcw, Award, Menu, X } from "lucide-react";
+import { Lock, CheckCircle, Circle, ChevronRight, RotateCcw, Award, Menu, X, BookOpen } from "lucide-react";
 import QuizPlayer from "../components/quiz/QuizPlayer";
 import { useAuth } from "../context/AuthContext";
 import { BlockRenderer } from "../components/lesson/LessonBlocks";
@@ -276,6 +276,13 @@ export default function LearnPage() {
             <Menu size={16} /> Lessons
             {status?.enrolled && <span className="text-muted" style={{ fontWeight: 500, fontSize: "0.78rem" }}>· {Math.round(status.percent_complete || 0)}%</span>}
           </button>
+          {allLessons.length === 0 && (
+            <div className="glass" style={{ padding: "3rem 2rem", textAlign: "center", marginTop: "2rem" }}>
+              <BookOpen size={48} color="var(--clr-primary)" style={{ margin: "0 auto 1rem" }} />
+              <h3>Lessons are on the way</h3>
+              <p className="text-muted">Your teacher is still preparing this course. New lessons will appear here as soon as they're ready.</p>
+            </div>
+          )}
           {currentLesson && (
             <>
               <div style={{ marginBottom: "1.5rem" }}>
