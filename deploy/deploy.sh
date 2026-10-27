@@ -187,7 +187,8 @@ android_app() {
     chmod 600 "$ks"
     ok "made the app signing key in $ANDROID_KEY_DIR (keep a copy somewhere safe)"
   fi
-  apksigner sign --ks "$ks" --ks-key-alias learnwithhasan --ks-pass "file:$pw" --key-pass "file:$pw" \
+  LWH_APK_PW="$(cat "$pw")" apksigner sign --ks "$ks" --ks-key-alias learnwithhasan \
+    --ks-pass env:LWH_APK_PW --key-pass env:LWH_APK_PW \
     --out "$tmp/signed.apk" "$tmp/unsigned.apk" >/dev/null 2>&1 || { rm -rf "$tmp"; return 4; }
   apksigner verify "$tmp/signed.apk" >/dev/null 2>&1 || { rm -rf "$tmp"; return 4; }
   mkdir -p dist.new/app
