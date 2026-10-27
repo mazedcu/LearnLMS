@@ -6,9 +6,10 @@ plugins {
 // The website the app opens. Change here if the domain ever changes.
 val siteHost = "learnwithhasan.xyz"
 
-// Release signing comes from environment variables (set by GitHub Actions
-// from repository secrets, or by you locally). Without them the release
-// build is signed with the debug key so it still installs.
+// Release signing comes from environment variables when building locally.
+// Without them the release APK is left unsigned: GitHub Actions publishes it
+// that way and the server's deploy script signs it with the key kept on the
+// droplet (/root/lms-android-key), so every update has the same signature.
 val keystoreFile = System.getenv("LWH_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
 
 android {
@@ -42,7 +43,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (keystoreFile != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 

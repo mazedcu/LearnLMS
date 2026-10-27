@@ -1,13 +1,11 @@
 name: Android app
 
 # Builds the LearnwithHasan Android app (android/) on every change to it,
-# or by hand from the Actions tab ("Run workflow").
-# With the signing secrets set it also publishes the APK as a GitHub release,
-# which the server's deploy script copies to https://learnwithhasan.xyz/app/learnwithhasan.apk
-#
-# Secrets (Settings → Secrets and variables → Actions):
-#   ANDROID_KEYSTORE_BASE64   the .jks file, base64-encoded
-#   ANDROID_KEYSTORE_PASSWORD its password (same for the key, alias "learnwithhasan")
+# or by hand from the Actions tab ("Run workflow"), and publishes the
+# *unsigned* APK as a GitHub release. It can't be installed as is: the
+# server's deploy script (deploy/deploy.sh) downloads it, signs it with the
+# key kept on the droplet, and serves it at
+# https://learnwithhasan.xyz/app/learnwithhasan.apk
 
 on:
   push:
@@ -37,46 +35,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - name: Signing key
-        id: key
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            {
-              echo "LWH_KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
-              echo "LWH_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-              echo "LWH_KEY_PASSWORD=$KEYSTORE_PASSWORD"
-              echo "LWH_KEY_ALIAS=learnwithhasan"
-            } >> "$GITHUB_ENV"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Signing secrets not set — building a test APK only (not published)."
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build APK
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/learnwithhasan.apk"
-
-      - uses: actions/upload-artifact@v5
-        with:
-          name: learnwithhasan-${{ env.LWH_VERSION_NAME }}
-          path: ${{ runner.temp }}/learnwithhasan.apk
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/learnwithhasan-unsigned.apk"
 
       - name: Publish release
-        if: steps.key.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-v${{ env.LWH_VERSION_NAME }}
           name: LearnwithHasan app ${{ env.LWH_VERSION_NAME }}
           target_commitish: ${{ github.sha }}
           body: |
-            Android app for learnwithhasan.xyz.
-            Install: open this on the phone, download **learnwithhasan.apk**, and allow installing from this source when asked.
-          files: ${{ runner.temp }}/learnwithhasan.apk
+            Unsigned build of the Android app. Students install the signed copy from
+            https://learnwithhasan.xyz/app/learnwithhasan.apk (signed by the server's deploy script).
+          files: ${{ runner.temp }}/learnwithhasan-unsigned.apk
           make_latest: true

@@ -162,19 +162,55 @@ npm ci --no-audit --no-fund --loglevel=error
 rm -rf dist.new
 npx vite build --outDir dist.new --emptyOutDir >/dev/null
 [ -f dist.new/index.html ] || die "Frontend build produced no index.html; the live site was not changed."
-# Android app: newest signed release from GitHub, served at /app/learnwithhasan.apk
-mkdir -p dist.new/app
-APK_URL="https://github.com/mazedcu/LearnLMS/releases/latest/download/learnwithhasan.apk"
-if curl -fsSL --max-time 180 -o dist.new/app/learnwithhasan.apk.part "$APK_URL" \
-   && [ "$(head -c 2 dist.new/app/learnwithhasan.apk.part)" = "PK" ]; then
-  mv dist.new/app/learnwithhasan.apk.part dist.new/app/learnwithhasan.apk
-  ok "Android app ($(du -h dist.new/app/learnwithhasan.apk | cut -f1)) at /app/learnwithhasan.apk"
-else
-  rm -f dist.new/app/learnwithhasan.apk.part
+# Android app: GitHub builds it unsigned; we sign it here with the server's own
+# key (made on the first run, kept in $ANDROID_KEY_DIR) and serve it at
+# /app/learnwithhasan.apk. Every update carries the same signature, so phones
+# update the app in place.
+ANDROID_KEY_DIR="${ANDROID_KEY_DIR:-/root/lms-android-key}"
+android_app() {
+  local ks="$ANDROID_KEY_DIR/learnwithhasan-release.jks" pw="$ANDROID_KEY_DIR/password"
+  local tmp; tmp="$(mktemp -d)"
+  local base="https://github.com/mazedcu/LearnLMS/releases/latest"
+  curl -fsSL --max-time 180 -o "$tmp/unsigned.apk" "$base/download/learnwithhasan-unsigned.apk" || { rm -rf "$tmp"; return 1; }
+  [ "$(head -c 2 "$tmp/unsigned.apk")" = "PK" ] || { rm -rf "$tmp"; return 1; }
+  if ! command -v apksigner >/dev/null || ! command -v keytool >/dev/null; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apksigner >/dev/null 2>&1 \
+      || { apt-get update -qq >/dev/null 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apksigner >/dev/null 2>&1; } \
+      || { rm -rf "$tmp"; return 2; }
+  fi
+  if [ ! -f "$ks" ]; then
+    mkdir -p "$ANDROID_KEY_DIR"; chmod 700 "$ANDROID_KEY_DIR"
+    python3 -c 'import secrets; print(secrets.token_urlsafe(24))' > "$pw"; chmod 600 "$pw"
+    keytool -genkeypair -keystore "$ks" -storetype PKCS12 -alias learnwithhasan -keyalg RSA -keysize 4096 \
+      -validity 36500 -storepass:file "$pw" -keypass:file "$pw" \
+      -dname "CN=LearnwithHasan, O=Radon Academy, C=BD" >/dev/null 2>&1 || { rm -rf "$tmp"; return 3; }
+    chmod 600 "$ks"
+    ok "made the app signing key in $ANDROID_KEY_DIR (keep a copy somewhere safe)"
+  fi
+  apksigner sign --ks "$ks" --ks-key-alias learnwithhasan --ks-pass "file:$pw" --key-pass "file:$pw" \
+    --out "$tmp/signed.apk" "$tmp/unsigned.apk" >/dev/null 2>&1 || { rm -rf "$tmp"; return 4; }
+  apksigner verify "$tmp/signed.apk" >/dev/null 2>&1 || { rm -rf "$tmp"; return 4; }
+  mkdir -p dist.new/app
+  mv "$tmp/signed.apk" dist.new/app/learnwithhasan.apk
+  chmod 644 dist.new/app/learnwithhasan.apk
+  rm -rf "$tmp"
+  cp -a "$ANDROID_KEY_DIR" "$BACKUP/android-key"   # the key travels with every backup
+  local tag; tag="$(curl -fsSI --max-time 30 "$base" | tr -d '\r' | sed -n 's|^[Ll]ocation: .*/tag/||p' | tail -1)"
+  ok "Android app ${tag#android-} signed, at /app/learnwithhasan.apk ($(du -h dist.new/app/learnwithhasan.apk | cut -f1))"
+}
+if android_app; then :; else
+  rc=$?
+  case $rc in
+    1) why="no app build on GitHub yet";;
+    2) why="couldn't install apksigner";;
+    3) why="couldn't make the signing key";;
+    *) why="signing failed";;
+  esac
   if [ -f dist/app/learnwithhasan.apk ]; then
-    cp dist/app/learnwithhasan.apk dist.new/app/ && warn "couldn't fetch the newest Android app; kept the current one"
+    mkdir -p dist.new/app && cp dist/app/learnwithhasan.apk dist.new/app/
+    warn "Android app not updated ($why); kept the current one"
   else
-    warn "no Android app release yet — the download link stays hidden"
+    warn "Android app skipped ($why) — the download link stays hidden"
   fi
 fi
 # Keep the previous build as dist.prev so rollback.sh can put it back instantly
