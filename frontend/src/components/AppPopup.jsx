@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { BookOpen, CheckCircle, Download, Smartphone, X } from "lucide-react";
-import QRCode from "qrcode";
+import { BookOpen, Check, CheckCircle, Copy, Download, X } from "lucide-react";
 import { APK_PATH, OPEN_EVENT, apkAvailable, isAndroid, isIOS, isInApp } from "./getApp";
 
 const KEY = "get-app-popup-dismissed-at";
@@ -22,7 +21,7 @@ export default function AppPopup() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState(false);
-  const [qr, setQr] = useState("");
+  const [copied, setCopied] = useState(false);
   const android = isAndroid();
   const ios = isIOS();
   const apkUrl = typeof window !== "undefined" ? window.location.origin + APK_PATH : APK_PATH;
@@ -44,11 +43,6 @@ export default function AppPopup() {
   }, [available, ios, pathname]);
 
   useEffect(() => {
-    if (!open || android || ios || qr) return;
-    QRCode.toDataURL(apkUrl, { margin: 1, width: 360, color: { dark: "#111827", light: "#ffffff" } }).then(setQr).catch(() => {});
-  }, [open, android, ios, qr, apkUrl]);
-
-  useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && close();
     window.addEventListener("keydown", onKey);
@@ -56,6 +50,11 @@ export default function AppPopup() {
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open || isInApp()) return null;
+
+  function copyLink() {
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(apkUrl).then(done).catch(() => {});
+  }
 
   function close() {
     setOpen(false);
@@ -81,21 +80,23 @@ export default function AppPopup() {
           <p className="getapp-note">
             The app is for Android phones. On iPhone, tap <b>Share</b> then <b>Add to Home Screen</b> to keep LearnwithHasan one tap away.
           </p>
-        ) : android ? (
+        ) : (
           <>
-            <a className="getapp-download" href={APK_PATH} download onClick={() => setTimeout(close, 300)}>
+            <a className="getapp-download" href={APK_PATH} download onClick={() => android && setTimeout(close, 300)}>
               <Download size={18} /> Download the app
             </a>
-            <p className="getapp-note">When it's downloaded, open the file and tap <b>Install</b>. If your phone asks, allow installing from your browser.</p>
-          </>
-        ) : (
-          <div className="getapp-desktop">
-            {qr ? <img src={qr} alt="QR code to download the Android app" width="150" height="150" /> : <div className="getapp-qr-skel" />}
-            <div>
-              <p><Smartphone size={16} /> <b>Scan with your Android phone's camera</b> to download the app.</p>
-              <a className="getapp-link" href={APK_PATH} download>Or download the file (APK)</a>
+            <div className="getapp-url">
+              <span>{apkUrl.replace(/^https?:\/\//, "")}</span>
+              <button type="button" onClick={copyLink} aria-label="Copy download link">
+                {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy link</>}
+              </button>
             </div>
-          </div>
+            <p className="getapp-note">
+              {android
+                ? <>When it's downloaded, open the file and tap <b>Install</b>. If your phone asks, allow installing from your browser.</>
+                : <>The app is for Android phones. Open this link on your phone to install it.</>}
+            </p>
+          </>
         )}
 
         <button type="button" className="getapp-later" onClick={close}>Not now</button>

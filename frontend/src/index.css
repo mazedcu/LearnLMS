@@ -1205,14 +1205,11 @@ button.drop-slot { color: var(--clr-heading); cursor: pointer; padding: 0 0.75re
 .getapp-points svg { color: var(--clr-success, #10B981); flex-shrink: 0; }
 .getapp-download { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.9rem 1rem; border-radius: 12px; background: var(--clr-primary); color: #fff; font-weight: 700; font-size: 1rem; text-decoration: none; box-shadow: 0 6px 16px rgba(79,70,229,0.3); }
 .getapp-download:hover { filter: brightness(1.05); color: #fff; }
+.getapp-url { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; padding: 0.4rem 0.4rem 0.4rem 0.75rem; border: 1px solid var(--clr-border); border-radius: 10px; background: var(--clr-bg); font-size: 0.8rem; }
+.getapp-url span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--clr-text); }
+.getapp-url button { display: inline-flex; align-items: center; gap: 0.3rem; flex-shrink: 0; border: 1px solid var(--clr-border); background: #fff; border-radius: 8px; padding: 0.3rem 0.55rem; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--clr-heading); cursor: pointer; }
 .getapp-note { font-size: 0.8rem; color: var(--clr-muted); margin: 0.75rem 0 0; line-height: 1.5; }
-.getapp-desktop { display: flex; align-items: center; gap: 1rem; text-align: left; padding: 0.85rem; border: 1px solid var(--clr-border); border-radius: 14px; background: var(--clr-bg); }
-.getapp-desktop img, .getapp-qr-skel { width: 130px; height: 130px; border-radius: 10px; background: #fff; flex-shrink: 0; }
-.getapp-desktop p { font-size: 0.88rem; margin: 0 0 0.5rem; line-height: 1.45; }
-.getapp-desktop p svg { vertical-align: -3px; color: var(--clr-primary); }
-.getapp-link { font-size: 0.82rem; font-weight: 600; }
 .getapp-later { margin-top: 0.9rem; background: none; border: none; color: var(--clr-muted); font: inherit; font-size: 0.88rem; padding: 0.5rem 1rem; cursor: pointer; border-radius: 8px; }
 .getapp-later:hover { background: var(--clr-bg); }
 @keyframes getapp-fade { from { opacity: 0; } }
 @keyframes getapp-up { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
-@media (max-width: 420px) { .getapp-desktop { flex-direction: column; text-align: center; } }
