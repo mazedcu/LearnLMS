@@ -1192,10 +1192,27 @@ button.drop-slot { color: var(--clr-heading); cursor: pointer; padding: 0 0.75re
   transform: translateX(2px);
 }
 
-/* ── Android app banner ── */
-.app-banner { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 900; display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.6rem 0.6rem 0.75rem; border-radius: 14px; background: #111827; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.25); max-width: 520px; margin: 0 auto; }
-.app-banner-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--clr-primary); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.app-banner-text { display: flex; flex-direction: column; line-height: 1.25; flex: 1; min-width: 0; font-size: 0.88rem; }
-.app-banner-text small { color: rgba(255,255,255,0.65); font-size: 0.75rem; }
-.app-banner-get { background: #fff; color: #111827; font-weight: 700; font-size: 0.82rem; padding: 0.5rem 0.8rem; border-radius: 10px; text-decoration: none; white-space: nowrap; }
-.app-banner-close { background: none; border: none; color: rgba(255,255,255,0.6); padding: 0.35rem; cursor: pointer; display: inline-flex; border-radius: 8px; }
+/* ── Get the app popup ── */
+.getapp-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(17,24,39,0.55); display: flex; align-items: center; justify-content: center; padding: 16px; animation: getapp-fade 0.2s ease; }
+.getapp { position: relative; width: 100%; max-width: 400px; max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; border-radius: 20px; padding: 1.75rem 1.5rem 1.25rem; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.25); animation: getapp-up 0.25s ease; }
+.getapp-close { position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; color: var(--clr-muted); padding: 0.35rem; border-radius: 8px; cursor: pointer; display: inline-flex; }
+.getapp-close:hover { background: var(--clr-bg); }
+.getapp-icon { width: 64px; height: 64px; margin: 0 auto 0.9rem; border-radius: 18px; background: linear-gradient(135deg, #6366F1, #4338CA); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(79,70,229,0.35); }
+.getapp h3 { font-size: 1.25rem; margin-bottom: 0.3rem; }
+.getapp-sub { color: var(--clr-muted); font-size: 0.92rem; margin-bottom: 1rem; }
+.getapp-points { list-style: none; padding: 0; margin: 0 auto 1.25rem; display: inline-flex; flex-direction: column; gap: 0.45rem; text-align: left; font-size: 0.9rem; color: var(--clr-text); }
+.getapp-points li { display: flex; align-items: center; gap: 0.5rem; }
+.getapp-points svg { color: var(--clr-success, #10B981); flex-shrink: 0; }
+.getapp-download { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.9rem 1rem; border-radius: 12px; background: var(--clr-primary); color: #fff; font-weight: 700; font-size: 1rem; text-decoration: none; box-shadow: 0 6px 16px rgba(79,70,229,0.3); }
+.getapp-download:hover { filter: brightness(1.05); color: #fff; }
+.getapp-note { font-size: 0.8rem; color: var(--clr-muted); margin: 0.75rem 0 0; line-height: 1.5; }
+.getapp-desktop { display: flex; align-items: center; gap: 1rem; text-align: left; padding: 0.85rem; border: 1px solid var(--clr-border); border-radius: 14px; background: var(--clr-bg); }
+.getapp-desktop img, .getapp-qr-skel { width: 130px; height: 130px; border-radius: 10px; background: #fff; flex-shrink: 0; }
+.getapp-desktop p { font-size: 0.88rem; margin: 0 0 0.5rem; line-height: 1.45; }
+.getapp-desktop p svg { vertical-align: -3px; color: var(--clr-primary); }
+.getapp-link { font-size: 0.82rem; font-weight: 600; }
+.getapp-later { margin-top: 0.9rem; background: none; border: none; color: var(--clr-muted); font: inherit; font-size: 0.88rem; padding: 0.5rem 1rem; cursor: pointer; border-radius: 8px; }
+.getapp-later:hover { background: var(--clr-bg); }
+@keyframes getapp-fade { from { opacity: 0; } }
+@keyframes getapp-up { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+@media (max-width: 420px) { .getapp-desktop { flex-direction: column; text-align: center; } }

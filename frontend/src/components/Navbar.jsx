@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import { BookOpen, LogOut, LayoutDashboard, Menu, X, Smartphone } from 'lucide-react';
+import { apkAvailable, openGetApp } from './getApp';
 import { useState, useEffect } from 'react';
 
 export default function Navbar() {
@@ -9,6 +10,8 @@ export default function Navbar() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [hasApp, setHasApp] = useState(false);
+  useEffect(() => { apkAvailable().then(setHasApp); }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -48,6 +51,12 @@ export default function Navbar() {
 
         <div className={`navbar-nav${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)}>
           <Link to="/" className={`nav-link ${isActive('/')}`}>Courses</Link>
+          {hasApp && (
+            <button type="button" className="nav-link" onClick={openGetApp} style={{ background: 'none', border: 'none', font: 'inherit', cursor: 'pointer' }}>
+              <Smartphone size={16} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
+              Get app
+            </button>
+          )}
 
           {user ? (
             <>
