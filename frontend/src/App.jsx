@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import AppPopup from './components/AppPopup';
+import AppStart from './components/AppStart';
 import { lazy, Suspense } from 'react';
 
 const HomePage            = lazy(() => import('./pages/HomePage'));
@@ -37,7 +38,7 @@ export default function App() {
           <BrowserRouter>
             <Suspense fallback={<PageFallback />}>
               <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<AppStart><HomePage /></AppStart>} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/courses/:slug" element={<CourseDetail />} />
