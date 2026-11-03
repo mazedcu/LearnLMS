@@ -1,12 +1,15 @@
-﻿import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/Navbar";
 import { coursesAPI, certificatesAPI, paymentsAPI } from "../../api";
-import { BookOpen, Award, ShoppingBag } from "lucide-react";
+import { BookOpen, Award, ShoppingBag, PlusCircle, Clock } from "lucide-react";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { data: courseData } = useQuery({ queryKey: ["courses"], queryFn: () => coursesAPI.list().then(r => r.data) });
 
   const { data: enrData } = useQuery({ queryKey: ["my-enr"], queryFn: () => coursesAPI.myEnrollments().then(r => r.data) });
   const { data: certData } = useQuery({ queryKey: ["my-certs"], queryFn: () => certificatesAPI.list().then(r => r.data) });
@@ -15,6 +18,17 @@ export default function StudentDashboard() {
   const enrollments = Array.isArray(enrData) ? enrData : (enrData?.results || []);
   const certs = Array.isArray(certData) ? certData : (certData?.results || []);
   const orders = Array.isArray(orderData) ? orderData : (orderData?.results || []);
+  const allCourses = Array.isArray(courseData) ? courseData : (courseData?.results || []);
+  const enrolledSlugs = new Set(enrollments.map(e => e.course_slug));
+  const waitingSlugs = new Set(orders.filter(o => o.status === "submitted").map(o => o.course_slug));
+  const moreCourses = allCourses.filter(c => c.status === "published" && !enrolledSlugs.has(c.slug));
+
+  // One tap: free courses open at once; paid ones go to payment (no forms to fill — you're signed in)
+  const enrollFree = useMutation({
+    mutationFn: (slug) => coursesAPI.enroll(slug),
+    onSuccess: (_r, slug) => { qc.invalidateQueries({ queryKey: ["my-enr"] }); navigate(`/learn/${slug}`); },
+  });
+  const apply = (c) => (c.is_free ? enrollFree.mutate(c.slug) : navigate(`/checkout/${c.slug}`));
 
   return (
     <div className="page">
@@ -62,6 +76,37 @@ export default function StudentDashboard() {
               </div>
             ))}
           </div>
+        )}
+
+        {moreCourses.length > 0 && (
+          <>
+            <h3 style={{ marginTop: "2.5rem", marginBottom: "0.35rem" }}>Enroll in another subject</h3>
+            <p className="text-muted" style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>You're already signed in, so there's nothing to fill in — just pay and send the transaction ID.</p>
+            <div className="grid-3">
+              {moreCourses.map(c => {
+                const waiting = waitingSlugs.has(c.slug);
+                return (
+                  <div key={c.id} className="card">
+                    <div className="card-body" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                      <h4 style={{ marginBottom: "0.35rem" }}>{c.title}</h4>
+                      {c.short_description && <p className="text-muted" style={{ fontSize: "0.82rem", marginBottom: "0.75rem", flex: 1 }}>{c.short_description}</p>}
+                      <p style={{ fontWeight: 700, marginBottom: "0.75rem", color: "var(--clr-heading)" }}>{c.is_free ? "Free" : `BDT ${Number(c.price).toLocaleString()}`}</p>
+                      {waiting ? (
+                        <span className="badge badge-warning" style={{ justifyContent: "center", padding: "0.5rem", display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+                          <Clock size={14} /> Payment sent — waiting for approval
+                        </span>
+                      ) : (
+                        <button className="btn btn-primary btn-sm" style={{ width: "100%", justifyContent: "center" }}
+                          disabled={enrollFree.isPending} onClick={() => apply(c)}>
+                          <PlusCircle size={15} /> {c.is_free ? "Enroll now" : "Enroll"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         {certs.length > 0 && (

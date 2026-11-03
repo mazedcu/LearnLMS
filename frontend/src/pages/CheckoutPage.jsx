@@ -45,14 +45,18 @@ export default function CheckoutPage() {
 
   const updateReg = (field, value) => setReg(r => ({ ...r, [field]: value }));
 
-  const createOrder = useMutation({
-    mutationFn: () => paymentsAPI.createOrder({ course: course.id, payment_method: method }).then(r => r.data),
-    onSuccess: (d) => setOrderId(d.id),
-    onError: (e) => setError(e.response?.data?.detail || "Failed to create order."),
-  });
 
+  // Signed-in students: one step — make the order (if needed) and send the transaction ID
   const submitRef = useMutation({
-    mutationFn: () => paymentsAPI.submitReference(orderId, { payment_reference: ref, payment_method: method }),
+    mutationFn: async () => {
+      let id = orderId;
+      if (!id) {
+        const { data } = await paymentsAPI.createOrder({ course: course.id, payment_method: method });
+        id = data.id;
+        setOrderId(id);
+      }
+      return paymentsAPI.submitReference(id, { payment_reference: ref, payment_method: method });
+    },
     onSuccess: () => setDone(true),
     onError: (e) => setError(e.response?.data?.detail || "Failed to submit reference."),
   });
@@ -144,6 +148,12 @@ export default function CheckoutPage() {
               </h4>
 
               {isGuest && (
+                <div className="alert alert-info" style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span><b>Already a student?</b> Sign in first — then you only need the transaction ID.</span>
+                  <Link to="/login" state={{ from: location }} className="btn btn-primary btn-sm">Sign in</Link>
+                </div>
+              )}
+              {isGuest && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem", paddingBottom: "1.25rem", borderBottom: "1px solid var(--clr-border)" }}>
                   <div className="grid-2" style={{ gap: "0.75rem" }}>
                     <div className="form-group">
@@ -189,10 +199,6 @@ export default function CheckoutPage() {
                   <UserPlus size={16} />
                   {guestPurchase.isPending ? "Processing..." : "Register & Purchase"}
                 </button>
-              ) : !orderId ? (
-                <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => createOrder.mutate()} disabled={createOrder.isPending}>
-                  {createOrder.isPending ? "Creating order..." : "Proceed"}
-                </button>
               ) : (
                 <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => submitRef.mutate()} disabled={!ref || submitRef.isPending}>
                   <CreditCard size={16} /> {submitRef.isPending ? "Submitting..." : "Submit for Verification"}
@@ -201,7 +207,7 @@ export default function CheckoutPage() {
 
               {isGuest && (
                 <p className="text-muted" style={{ marginTop: "1rem", textAlign: "center", fontSize: "0.875rem" }}>
-                  Already have an account? <Link to="/login" style={{ color: "var(--clr-primary)" }}>Sign in</Link>
+                  Already have an account? <Link to="/login" state={{ from: location }} style={{ color: "var(--clr-primary)" }}>Sign in</Link>
                 </p>
               )}
             </div>

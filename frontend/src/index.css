@@ -1213,3 +1213,35 @@ button.drop-slot { color: var(--clr-heading); cursor: pointer; padding: 0 0.75re
 .getapp-later:hover { background: var(--clr-bg); }
 @keyframes getapp-fade { from { opacity: 0; } }
 @keyframes getapp-up { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+
+/* ── Admin/manager: a student's enrollments ── */
+.enr-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(17,24,39,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.enr-modal { width: 100%; max-width: 560px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 18px; box-shadow: 0 25px 50px rgba(0,0,0,0.25); overflow: hidden; }
+.enr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--clr-border); }
+.enr-head h3 { font-size: 1.1rem; margin: 0 0 0.15rem; }
+.enr-head p { font-size: 0.82rem; margin: 0; }
+.enr-x { background: none; border: none; color: var(--clr-muted); padding: 0.3rem; border-radius: 8px; cursor: pointer; display: inline-flex; }
+.enr-x:hover { background: var(--clr-bg); }
+.enr-body { padding: 1.1rem 1.25rem 1.25rem; overflow-y: auto; }
+.enr-h { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--clr-muted); margin: 0 0 0.6rem; }
+.enr-empty { font-size: 0.85rem; color: var(--clr-muted); padding: 0.75rem; border: 1px dashed var(--clr-border); border-radius: 10px; text-align: center; margin: 0; }
+.enr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.enr-list li { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 0.75rem; border: 1px solid var(--clr-border); border-radius: 12px; }
+.enr-list li.off { background: var(--clr-bg); }
+.enr-list li.off b { color: var(--clr-muted); }
+.enr-ic { color: var(--clr-primary); flex-shrink: 0; }
+.enr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.enr-main b { font-size: 0.9rem; color: var(--clr-heading); }
+.enr-main > span { font-size: 0.76rem; color: var(--clr-muted); }
+.enr-pick { display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; }
+.enr-pick label { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.75rem; border: 1.5px solid var(--clr-border); border-radius: 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.enr-pick label:hover { border-color: var(--clr-primary); }
+.enr-pick label.on { border-color: var(--clr-primary); background: rgba(79,70,229,0.05); }
+.enr-pick input { position: absolute; opacity: 0; pointer-events: none; }
+.enr-check { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--clr-border); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.enr-pick label.on .enr-check { background: var(--clr-primary); border-color: var(--clr-primary); }
+.enr-pick label:focus-within { box-shadow: 0 0 0 3px rgba(79,70,229,0.2); }
+.enr-foot { display: flex; align-items: flex-end; gap: 0.75rem; margin-top: 0.9rem; flex-wrap: wrap; }
+.enr-until { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; font-weight: 600; color: var(--clr-heading); flex: 1; min-width: 170px; }
+.enr-foot .btn { white-space: nowrap; }
+.enr-hint { font-size: 0.76rem; color: var(--clr-muted); margin: 0.6rem 0 0; }

@@ -5,6 +5,7 @@ from .views import (
     LessonListCreateView, LessonDetailView,
     EnrollView, MyEnrollmentsView,
 )
+from .staff_enrollments import StaffEnrollmentView, StaffEnrollmentDetailView
 from .builder import CourseOutlineView, CourseReorderView, CoursePublishLessonsView
 
 app_name = 'courses'
@@ -12,6 +13,8 @@ app_name = 'courses'
 urlpatterns = [
     path('', CourseListCreateView.as_view(), name='course-list'),
     path('my-enrollments/', MyEnrollmentsView.as_view(), name='my-enrollments'),
+    path('enrollments/manage/', StaffEnrollmentView.as_view(), name='staff-enrollments'),
+    path('enrollments/manage/<uuid:pk>/', StaffEnrollmentDetailView.as_view(), name='staff-enrollment-detail'),
     path('<slug:slug>/', CourseDetailView.as_view(), name='course-detail'),
     path('<slug:slug>/outline/', CourseOutlineView.as_view(), name='course-outline'),
     path('<slug:slug>/reorder/', CourseReorderView.as_view(), name='course-reorder'),

@@ -111,6 +111,13 @@ export const coursesAPI = {
   myEnrollments: () => api.get('/courses/my-enrollments/'),
 };
 
+// Admins and managers: admit students to courses by hand
+export const staffEnrollAPI = {
+  forStudent: (studentId) => api.get('/courses/enrollments/manage/', { params: { student: studentId } }),
+  admit: (studentId, courses, expiry_date) => api.post('/courses/enrollments/manage/', { student: studentId, courses, expiry_date: expiry_date || null }),
+  update: (enrollmentId, data) => api.patch(`/courses/enrollments/manage/${enrollmentId}/`, data),
+};
+
 export const lessonsAPI = {
   detail: (id) => api.get(`/content/lessons/${id}/`),
   blocks: (id) => api.get(`/content/lessons/${id}/blocks/`),

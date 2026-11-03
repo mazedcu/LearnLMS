@@ -2,7 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authAPI } from "../../api";
 import { useAuth } from "../../context/AuthContext";
-import { Save, Search, Trash2, KeyRound } from "lucide-react";
+import { Save, Search, Trash2, KeyRound, BookOpen } from "lucide-react";
+import EnrollmentsModal from "./EnrollmentsModal";
 
 function errorText(e, fallback) {
   const d = e?.response?.data;
@@ -18,6 +19,7 @@ export default function UsersSection() {
   const qc = useQueryClient();
   const { user: me } = useAuth();
   const [search, setSearch] = useState("");
+  const [coursesFor, setCoursesFor] = useState(null); // user whose courses are open
   const [pwFor, setPwFor] = useState(null);      // user id getting a new password
   const [newPw, setNewPw] = useState("");
   const [notice, setNotice] = useState(null);    // { kind, text }
@@ -122,6 +124,10 @@ export default function UsersSection() {
                     </form>
                   ) : (
                   <div style={{ display: "flex", gap: "0.375rem" }}>
+                    <button className="btn btn-outline btn-sm" style={{ padding: "0.2rem 0.5rem", fontSize: "0.75rem" }} title="See and change this user's courses"
+                      onClick={() => setCoursesFor({ id: u.id, email: u.email, name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username })}>
+                      <BookOpen size={12} /> Courses
+                    </button>
                     <button className="btn btn-outline btn-sm" style={{ padding: "0.2rem 0.5rem" }} title="Set a new password"
                       onClick={() => { setPwFor(u.id); setNewPw(""); }}>
                       <KeyRound size={12} />
@@ -153,6 +159,7 @@ export default function UsersSection() {
         </table>
         {!isLoading && users.length === 0 && <p className="text-muted" style={{ textAlign: "center", padding: "2rem" }}>No users found.</p>}
       </div>
+      {coursesFor && <EnrollmentsModal student={coursesFor} onClose={() => setCoursesFor(null)} />}
     </div>
   );
 }

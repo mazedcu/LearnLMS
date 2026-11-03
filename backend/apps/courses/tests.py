@@ -113,3 +113,39 @@ class PublishLessonsTests(CourseBuilderTests):
         self.b.refresh_from_db(); self.assertFalse(self.b.is_published)
         sc = APIClient(); sc.force_authenticate(self.student)
         self.assertEqual(sc.post('/api/courses/chem/publish-lessons/', {}, format='json').status_code, 403)
+
+
+class StaffEnrollmentTests(TestCase):
+    def setUp(self):
+        self.manager = CustomUser.objects.create_user(email='m@x.com', username='m', password='pw', role='manager')
+        self.student = CustomUser.objects.create_user(email='s2@x.com', username='s2', password='pw', role='student')
+        self.p = Course.objects.create(title='Physics', slug='phy', instructor=self.manager, status='published', price=1000)
+        self.c = Course.objects.create(title='Chemistry', slug='chem2', instructor=self.manager, status='published', price=1000)
+        self.client = APIClient(); self.client.force_authenticate(self.manager)
+
+    def test_admit_to_several_courses_then_remove_and_restore(self):
+        from apps.courses.models import Enrollment
+        r = self.client.post('/api/courses/enrollments/manage/',
+                             {'student': str(self.student.id), 'courses': [str(self.p.id), str(self.c.id)], 'expiry_date': '2099-06-30'},
+                             format='json')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(sorted(r.json()['admitted']), ['Chemistry', 'Physics'])
+        e = Enrollment.objects.get(student=self.student, course=self.p)
+        self.assertTrue(e.is_active); self.assertEqual(e.expiry_date.date().isoformat(), '2099-06-30')
+        # the student can now open the course
+        sc = APIClient(); sc.force_authenticate(self.student)
+        self.assertEqual(len(sc.get('/api/courses/my-enrollments/').json()), 2)
+        # take access away, then give it back with no end date
+        self.client.patch(f'/api/courses/enrollments/manage/{e.id}/', {'is_active': False}, format='json')
+        self.assertEqual(len(sc.get('/api/courses/my-enrollments/').json()), 1)
+        r = self.client.post('/api/courses/enrollments/manage/',
+                             {'student': str(self.student.id), 'courses': [str(self.p.id)]}, format='json')
+        e.refresh_from_db(); self.assertTrue(e.is_active); self.assertIsNone(e.expiry_date)
+        state = self.client.get(f'/api/courses/enrollments/manage/?student={self.student.id}').json()
+        self.assertEqual(len(state['enrollments']), 2); self.assertEqual(len(state['courses']), 2)
+
+    def test_students_cannot_admit(self):
+        sc = APIClient(); sc.force_authenticate(self.student)
+        r = sc.post('/api/courses/enrollments/manage/', {'student': str(self.student.id), 'courses': [str(self.p.id)]}, format='json')
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(sc.get(f'/api/courses/enrollments/manage/?student={self.student.id}').status_code, 403)
