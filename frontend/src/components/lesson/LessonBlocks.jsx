@@ -223,6 +223,11 @@ export function VideoBlock({ block }) {
     return url;
   };
 
+  // Our own videos (uploaded, library, or a direct file link) play in our player, which has fullscreen
+  const u = block.video_url || "";
+  const isOwn = u && !/youtu\.?be|vimeo\.com/.test(u) && (u.startsWith("/") || u.includes("/api/media/videos/") || /\.(mp4|webm|mov|m4v|ogv)(\?|$)/i.test(u));
+  if (isOwn) return <SecureVideoPlayer src={u} title={block.title} />;
+
   const embedUrl = getEmbedUrl(block.video_url);
 
   if (embedUrl) return (
