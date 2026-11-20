@@ -209,7 +209,7 @@ class VideoEmbedView(APIView):
 </head>
 <body>
   <video controls autoplay playsinline preload="metadata"
-         controlsList="nodownload nofullscreen noremoteplayback"
+         controlsList="nodownload noremoteplayback"
          disablePictureInPicture
          oncontextmenu="return false;">
     <source src="{file_url}">
