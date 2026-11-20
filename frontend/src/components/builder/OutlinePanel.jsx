@@ -3,7 +3,7 @@ import { GripVertical, Plus, Pencil, Trash2, ArrowUp, ArrowDown, ChevronDown, Ch
 import { InlineEdit, RowMenu, dropPosition } from "./shared";
 
 /**
- * Course outline: modules → lessons.
+ * Course outline: modules → topics.
  * Drag lessons within or between modules, drag modules to reorder.
  * Every drag action also has a menu equivalent (Move up / down / to module),
  * which works on touch screens and with the keyboard.
@@ -87,7 +87,7 @@ export default function OutlinePanel({
       <div className="cb-outline-scroll" onDragOver={(e) => drag && e.preventDefault()} onDrop={handleDrop}>
         {modules.length === 0 && (
           <div className="cb-module-empty" style={{ margin: "0.5rem" }}>
-            Start by adding your first module (a chapter or unit).
+            Start by adding your first module (a chapter or unit); topics go inside it.
           </div>
         )}
 
@@ -130,7 +130,7 @@ export default function OutlinePanel({
                 <RowMenu
                   label="Module actions"
                   items={[
-                    { label: "Add lesson", icon: Plus, onClick: () => { setCollapsed((c) => ({ ...c, [mod.id]: false })); setAdding(mod.id); } },
+                    { label: "Add topic", icon: Plus, onClick: () => { setCollapsed((c) => ({ ...c, [mod.id]: false })); setAdding(mod.id); } },
                     { label: "Rename", icon: Pencil, onClick: () => setRenaming(mod.id) },
                     "divider",
                     { label: "Move up", icon: ArrowUp, disabled: mi === 0, onClick: () => moveModule(mod.id, mi - 1) },
@@ -175,7 +175,7 @@ export default function OutlinePanel({
                         </div>
                       </div>
                       <RowMenu
-                        label="Lesson actions"
+                        label="Topic actions"
                         items={[
                           { label: "Rename", icon: Pencil, onClick: () => setRenaming(l.id) },
                           "divider",
@@ -186,25 +186,25 @@ export default function OutlinePanel({
                             onClick: () => moveLesson(l.id, t.id, t.lessons.length),
                           })),
                           "divider",
-                          { label: "Delete lesson", icon: Trash2, danger: true, onClick: () => onDeleteLesson(l) },
+                          { label: "Delete topic", icon: Trash2, danger: true, onClick: () => onDeleteLesson(l) },
                         ]}
                       />
                     </div>
                   ))}
 
                   {mod.lessons.length === 0 && adding !== mod.id && (
-                    <div className="cb-module-empty">No lessons yet — drop one here or add below.</div>
+                    <div className="cb-module-empty">No topics yet — add the first one below.</div>
                   )}
 
                   {adding === mod.id ? (
                     <div style={{ padding: "0.25rem 0.25rem 0.25rem 0.5rem" }}>
-                      <InlineEdit autoEdit value="" placeholder="Lesson title, then Enter"
+                      <InlineEdit autoEdit value="" placeholder="Topic title, then Enter"
                         onSave={(t) => { setAdding(null); onAddLesson(mod.id, t); }}
                         onCancel={() => setAdding(null)} />
                     </div>
                   ) : (
                     <button className="cb-add-lesson" onClick={() => setAdding(mod.id)}>
-                      <Plus size={14} /> Add lesson
+                      <Plus size={14} /> Add topic
                     </button>
                   )}
                 </div>

@@ -277,7 +277,7 @@ export default function CourseDetail() {
 
             {/* Stats pills */}
             <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-              <StatPill icon={BookOpen} label={`${totalLessons} lessons`} />
+              <StatPill icon={BookOpen} label={`${totalLessons} topics`} />
               {totalMins > 0 && <StatPill icon={Clock} label={`${Math.round(totalMins / 60 * 10) / 10}h total`} />}
               {course.instructor_name && <StatPill icon={Users} label={`By ${course.instructor_name}`} />}
               <StatPill icon={Award} label="Certificate" />
@@ -373,7 +373,7 @@ export default function CourseDetail() {
 
               {/* Features list */}
               <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginTop: "1rem" }}>
-                <Feature icon={PlayCircle}   color="#4F46E5" text={`${totalLessons} on-demand lessons`} />
+                <Feature icon={PlayCircle}   color="#4F46E5" text={`${totalLessons} on-demand topics`} />
                 {totalMins > 0 && <Feature icon={Clock} color="#7C3AED" text={`${Math.round(totalMins)} minutes of content`} />}
                 <Feature icon={ShieldCheck}  color="#059669" text="Lifetime access" />
                 <Feature icon={Award}        color="#EC4899" text="Certificate of completion" />
@@ -410,7 +410,7 @@ export default function CourseDetail() {
             <div>
               <h2 style={{ margin: 0, fontSize: "1.4rem" }}>Course Curriculum</h2>
               <p style={{ color: "#6B7280", fontSize: "0.85rem", marginTop: "4px" }}>
-                {modules.length} module{modules.length !== 1 ? "s" : ""} · {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
+                {modules.length} module{modules.length !== 1 ? "s" : ""} · {totalLessons} topic{totalLessons !== 1 ? "s" : ""}
                 {totalMins > 0 && ` · ${totalMins} min total`}
               </p>
             </div>

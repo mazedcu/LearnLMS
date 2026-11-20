@@ -13,7 +13,7 @@ import {
 /* ── Unlock rule ─────────────────────────────────────────────── */
 const RULES = [
   ["", "Open as soon as the student enrolls"],
-  ["completion", "After finishing another lesson"],
+  ["completion", "After finishing another topic"],
   ["time", "A number of days after enrolling"],
   ["quiz_score", "After passing a quiz"],
   ["manual", "When I unlock it for each student"],
@@ -65,8 +65,8 @@ function UnlockRule({ lesson, allLessons, onSaved, toast }) {
       </select>
 
       {form.type === "completion" && (
-        <select className="cb-select" value={form.required_lesson} onChange={(e) => setForm((f) => ({ ...f, required_lesson: e.target.value }))} aria-label="Required lesson">
-          <option value="">Choose lesson…</option>
+        <select className="cb-select" value={form.required_lesson} onChange={(e) => setForm((f) => ({ ...f, required_lesson: e.target.value }))} aria-label="Required topic">
+          <option value="">Choose topic…</option>
           {others.map((l) => <option key={l.id} value={l.id}>{l.moduleTitle} › {l.title}</option>)}
         </select>
       )}
@@ -96,10 +96,10 @@ function UnlockRule({ lesson, allLessons, onSaved, toast }) {
         </button>
       )}
       {form.type === "quiz_score" && quizzes.length === 0 && (
-        <span className="cb-rule-note">No quizzes in this course yet — add one to a lesson first.</span>
+        <span className="cb-rule-note">No quizzes in this course yet — add one to a topic first.</span>
       )}
       {form.type === "manual" && (
-        <span className="cb-rule-note">Students see "Your teacher will unlock this lesson" until you unlock it for them.</span>
+        <span className="cb-rule-note">Students see "Your teacher will unlock this topic" until you unlock it for them.</span>
       )}
     </div>
   );
@@ -203,12 +203,12 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
   const updateLesson = useMutation({
     mutationFn: (data) => adminAPI.updateLesson(lesson.id, data),
     onSuccess: () => onLessonChanged(),
-    onError: (e) => toast(apiErrorMessage(e, "Couldn't save the lesson."), "error"),
+    onError: (e) => toast(apiErrorMessage(e, "Couldn't save the topic."), "error"),
   });
 
   const createBlock = useMutation({
     mutationFn: (fd) => builderAPI.createBlock(lesson.id, fd),
-    onSuccess: () => { setAdding(null); refreshBlocks(); toast("Added to lesson"); },
+    onSuccess: () => { setAdding(null); refreshBlocks(); toast("Added to topic"); },
   });
 
   const deleteBlock = useMutation({
@@ -292,15 +292,15 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
         <input
           className="cb-title-input"
           value={title}
-          aria-label="Lesson title"
+          aria-label="Topic title"
           onChange={(e) => setTitle(e.target.value)}
           onBlur={saveTitle}
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setTitle(lesson.title); e.currentTarget.blur(); } }}
         />
-        <a className="cb-btn cb-btn-ghost" href={`/learn/${slug}/${lesson.id}`} target="_blank" rel="noopener noreferrer" title="Open this lesson as a student sees it">
+        <a className="cb-btn cb-btn-ghost" href={`/learn/${slug}/${lesson.id}`} target="_blank" rel="noopener noreferrer" title="Open this topic as a student sees it">
           <Eye size={15} /> <span className="cb-label">View as student</span>
         </a>
-        <RowMenu label="Lesson actions" items={[{ label: "Delete lesson", icon: Trash2, danger: true, onClick: onDeleteLesson }]} />
+        <RowMenu label="Topic actions" items={[{ label: "Delete topic", icon: Trash2, danger: true, onClick: onDeleteLesson }]} />
         </div>
       </div>
 
@@ -323,7 +323,7 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
       <section className="cb-section">
         <div className="cb-section-head">
           <div>
-            <h3>Lesson content</h3>
+            <h3>Topic content</h3>
             <p>Students see these in order. Drag to rearrange.</p>
           </div>
         </div>
@@ -424,7 +424,7 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
             {blocks.length === 0 && uploads.length === 0 && !isLoading && (
               <div className="cb-dropzone" style={{ marginBottom: "0.75rem" }} onClick={() => fileInput.current?.click()}>
                 <UploadCloud size={26} />
-                <strong>Drop files here to build this lesson</strong>
+                <strong>Drop files here to build this topic</strong>
                 <span>HTML pages, videos, PDFs, images and .h5p files — add several at once</span>
               </div>
             )}
@@ -452,7 +452,7 @@ export default function LessonPanel({ lesson, moduleTitle, allLessons, slug, toa
         <div className="cb-section-head">
           <div>
             <h3>Quizzes</h3>
-            <p>Shown after the lesson content. Students are marked automatically.</p>
+            <p>Shown after the topic content. Students are marked automatically.</p>
           </div>
         </div>
         <div className="cb-quiz-area">

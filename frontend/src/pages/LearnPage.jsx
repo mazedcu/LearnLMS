@@ -142,7 +142,7 @@ function Sidebar({ modules, activeLessonId, onSelect, isMobileOpen, onMobileClos
     >
       <button
         onClick={onMobileClose}
-        aria-label="Close lesson list"
+        aria-label="Close topic list"
         style={{ position: "absolute", top: "0.5rem", right: "0.5rem", background: "none", border: "none", cursor: "pointer", padding: "0.5rem", display: "none" }}
         className="mobile-close-btn"
       >
@@ -272,15 +272,15 @@ export default function LearnPage() {
           status={status}
         />
         <main style={{ flex: 1, overflowY: "auto", padding: "2rem" }}>
-          <button className="learn-lessons-btn" onClick={() => setSidebarOpen(true)} aria-label="Show lessons">
-            <Menu size={16} /> Lessons
+          <button className="learn-lessons-btn" onClick={() => setSidebarOpen(true)} aria-label="Show topics">
+            <Menu size={16} /> Topics
             {status?.enrolled && <span className="text-muted" style={{ fontWeight: 500, fontSize: "0.78rem" }}>· {Math.round(status.percent_complete || 0)}%</span>}
           </button>
           {allLessons.length === 0 && (
             <div className="glass" style={{ padding: "3rem 2rem", textAlign: "center", marginTop: "2rem" }}>
               <BookOpen size={48} color="var(--clr-primary)" style={{ margin: "0 auto 1rem" }} />
-              <h3>Lessons are on the way</h3>
-              <p className="text-muted">Your teacher is still preparing this course. New lessons will appear here as soon as they're ready.</p>
+              <h3>Topics are on the way</h3>
+              <p className="text-muted">Your teacher is still preparing this course. New topics will appear here as soon as they're ready.</p>
             </div>
           )}
           {currentLesson && (
@@ -293,11 +293,11 @@ export default function LearnPage() {
               {(lockInfo || (!user && !currentLesson.is_preview) || (blocks?.length === 0 && !currentLesson.is_preview && user && !currentState)) ? (
                 <div className="glass" style={{ padding: "3rem 2rem", textAlign: "center", marginTop: "2rem" }}>
                   <Lock size={48} color="var(--clr-muted)" style={{ margin: "0 auto 1rem" }} />
-                  <h3>This lesson is locked</h3>
+                  <h3>This topic is locked</h3>
                   <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
                     {lockInfo?.message || (user
-                      ? "You need to enroll in this course or unlock previous lessons to access this content."
-                      : "Please sign in and enroll to access this lesson.")}
+                      ? "You need to enroll in this course or unlock previous topics to access this content."
+                      : "Please sign in and enroll to access this topic.")}
                   </p>
                   {(!user || lockInfo?.reason === "login") && (
                     <button className="btn btn-primary" onClick={() => navigate("/login")}>Sign in</button>

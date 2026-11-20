@@ -90,17 +90,17 @@ export default function CourseBuilder() {
       await qc.refetchQueries({ queryKey: outlineKey });
       refresh();
       if (res?.data?.id) selectLesson(res.data.id);
-      toast("Lesson added as a draft");
+      toast("Topic added as a draft");
     },
-    onError: fail("Couldn't add the lesson."),
+    onError: fail("Couldn't add the topic."),
   });
   const renameLesson = useMutation({
     mutationFn: ({ id, title }) => adminAPI.updateLesson(id, { title }),
-    onSuccess: refresh, onError: fail("Couldn't rename the lesson."),
+    onSuccess: refresh, onError: fail("Couldn't rename the topic."),
   });
   const deleteLesson = useMutation({
     mutationFn: (id) => adminAPI.deleteLesson(id),
-    onSuccess: () => { refresh(); toast("Lesson deleted"); }, onError: fail("Couldn't delete the lesson."),
+    onSuccess: () => { refresh(); toast("Topic deleted"); }, onError: fail("Couldn't delete the topic."),
   });
   const togglePublish = useMutation({
     mutationFn: () => coursesAPI.update(slug, { status: course.status === "published" ? "draft" : "published" }),
@@ -110,16 +110,16 @@ export default function CourseBuilder() {
 
   const publishLessons = useMutation({
     mutationFn: () => builderAPI.publishLessons(slug),
-    onSuccess: (r) => { refresh(); toast(`${r.data.published} lesson${r.data.published === 1 ? "" : "s"} published — students can see them now`); },
-    onError: fail("Couldn't publish the lessons."),
+    onSuccess: (r) => { refresh(); toast(`${r.data.published} topic${r.data.published === 1 ? "" : "s"} published — students can see them now`); },
+    onError: fail("Couldn't publish the topics."),
   });
 
   const confirmDeleteModule = (mod) => {
     const n = mod.lessons.length;
-    if (confirm(`Delete module "${mod.title}"${n ? ` and its ${n} lesson${n > 1 ? "s" : ""}` : ""}? This can't be undone.`)) deleteModule.mutate(mod.id);
+    if (confirm(`Delete module "${mod.title}"${n ? ` and its ${n} topic${n > 1 ? "s" : ""}` : ""}? This can't be undone.`)) deleteModule.mutate(mod.id);
   };
   const confirmDeleteLesson = (lesson) => {
-    if (confirm(`Delete lesson "${lesson.title}" and all its content? This can't be undone.`)) deleteLesson.mutate(lesson.id);
+    if (confirm(`Delete topic "${lesson.title}" and all its content? This can't be undone.`)) deleteLesson.mutate(lesson.id);
   };
 
   if (error) {
@@ -169,7 +169,7 @@ export default function CourseBuilder() {
             <span><b>Students can't see this course</b> — it's a draft.</span>
           ) : (
             <span>
-              <b>{draftLessons.length} lesson{draftLessons.length === 1 ? " is a draft" : "s are drafts"}</b>, so students can't see {draftLessons.length === 1 ? "it" : "them"}
+              <b>{draftLessons.length} topic{draftLessons.length === 1 ? " is a draft" : "s are drafts"}</b>, so students can't see {draftLessons.length === 1 ? "it" : "them"}
               {hiddenModules.length > 0 && <> — {hiddenModules.length === modules.length ? "every module looks empty to them" : `${hiddenModules.map((m) => `“${m.title}”`).join(", ")} look${hiddenModules.length === 1 ? "s" : ""} empty to them`}</>}.
             </span>
           )}
@@ -223,7 +223,7 @@ export default function CourseBuilder() {
               <>
                 <BookOpen size={40} color="var(--clr-primary)" style={{ margin: "0 auto" }} />
                 <h3>Let's build this course</h3>
-                <p>Courses are made of modules (chapters or units), and each module holds lessons. Start with your first module.</p>
+                <p>Build in three steps: add a module (a chapter or unit), add topics under it, then build the content of each topic. Start with your first module.</p>
                 <button className="cb-btn cb-btn-primary" onClick={() => addModule.mutate("Module 1")}>
                   <FolderPlus size={15} /> Add first module
                 </button>
@@ -231,10 +231,10 @@ export default function CourseBuilder() {
             ) : (
               <>
                 <BookOpen size={40} color="var(--clr-primary)" style={{ margin: "0 auto" }} />
-                <h3>Add a lesson</h3>
-                <p>Use "Add lesson" under a module in the outline, then drop your HTML files, videos, PDFs and quizzes into it.</p>
-                <button className="cb-btn cb-btn-primary" onClick={() => addLesson.mutate({ moduleId: modules[0].id, title: "Lesson 1" })}>
-                  Add a lesson to "{modules[0].title}"
+                <h3>Add a topic</h3>
+                <p>Use "Add topic" under a module in the outline, then build the topic's content: drop in HTML files, videos, PDFs and quizzes.</p>
+                <button className="cb-btn cb-btn-primary" onClick={() => addLesson.mutate({ moduleId: modules[0].id, title: "Topic 1" })}>
+                  Add a topic to "{modules[0].title}"
                 </button>
               </>
             )}

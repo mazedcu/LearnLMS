@@ -5,7 +5,7 @@ import Navbar from "../../components/Navbar";
 import { progressAPI } from "../../api";
 
 /** Per-course numbers: enrolments, average progress, completions, and how
- *  many students finished each lesson (spot where they drop off). */
+ *  many students finished each topic (spot where they drop off). */
 export default function CourseAnalytics() {
   const { slug } = useParams();
   const { data, isLoading, error } = useQuery({
@@ -44,10 +44,10 @@ export default function CourseAnalytics() {
               ))}
             </div>
 
-            <h3 style={{ marginBottom: "0.35rem" }}>Lessons completed</h3>
-            <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: "1rem" }}>How many students finished each lesson — a sharp drop shows where students get stuck.</p>
+            <h3 style={{ marginBottom: "0.35rem" }}>Topics completed</h3>
+            <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: "1rem" }}>How many students finished each topic — a sharp drop shows where students get stuck.</p>
             {lessons.length === 0 ? (
-              <p className="text-muted">No lesson completions yet.</p>
+              <p className="text-muted">No topic completions yet.</p>
             ) : (
               <div className="glass" style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.7rem" }}>
                 {lessons.map((l, i) => (

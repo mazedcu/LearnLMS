@@ -168,7 +168,7 @@ export default function BlockForm({ type, block, initialFile, onSubmit, onCancel
       <div className="cb-form-actions">
         <button className="cb-btn cb-btn-ghost" onClick={onCancel} disabled={saving}>Cancel</button>
         <button className="cb-btn cb-btn-primary" onClick={submit} disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Add to lesson"}
+          {saving ? "Saving…" : isEdit ? "Save changes" : "Add to topic"}
         </button>
       </div>
     </div>
