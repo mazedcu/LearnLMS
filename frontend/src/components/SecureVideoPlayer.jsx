@@ -86,22 +86,31 @@ export default function SecureVideoPlayer({ src, title }) {
     setMuted(v.muted);
   };
 
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
   const toggleFullscreen = () => {
     const el = containerRef.current;
+    const v = videoRef.current;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.();
-      setFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setFullscreen(false);
+    if (fsElement()) {
+      (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      return;
+    }
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+      Promise.resolve(req.call(el)).catch(() => v?.webkitEnterFullscreen?.());
+    } else if (v?.webkitEnterFullscreen) {
+      v.webkitEnterFullscreen(); // iPhone Safari only allows the video itself
     }
   };
 
   useEffect(() => {
-    const handler = () => setFullscreen(!!document.fullscreenElement);
+    const handler = () => setFullscreen(!!fsElement());
     document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    document.addEventListener("webkitfullscreenchange", handler);
+    return () => {
+      document.removeEventListener("fullscreenchange", handler);
+      document.removeEventListener("webkitfullscreenchange", handler);
+    };
   }, []);
 
   const progressPct = duration ? (currentTime / duration) * 100 : 0;
@@ -110,12 +119,13 @@ export default function SecureVideoPlayer({ src, title }) {
     <div
       ref={containerRef}
       onMouseMove={resetHideTimer}
+      onTouchStart={resetHideTimer}
       onMouseLeave={() => playing && setShowControls(false)}
       onContextMenu={e => e.preventDefault()}
       style={{
         position: "relative",
         width: "100%",
-        aspectRatio: "16/9",
+        ...(fullscreen ? { height: "100%" } : { aspectRatio: "16/9" }),
         background: "#000",
         borderRadius: "10px",
         overflow: "hidden",

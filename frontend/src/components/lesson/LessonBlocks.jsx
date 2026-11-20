@@ -233,7 +233,7 @@ export function VideoBlock({ block }) {
         title={block.title} 
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
         loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
         referrerPolicy="no-referrer-when-downgrade"
       />
     </div>
