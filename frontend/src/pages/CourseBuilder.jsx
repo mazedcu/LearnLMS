@@ -73,7 +73,7 @@ export default function CourseBuilder() {
 
   const addModule = useMutation({
     mutationFn: (title) => adminAPI.createModule(slug, { title }),
-    onSuccess: () => { refresh(); toast("Module added"); },
+    onSuccess: () => { refresh(); toast("Module added — open the outline (☰) to rename it or add topics"); },
     onError: fail("Couldn't add the module."),
   });
   const renameModule = useMutation({
@@ -153,6 +153,9 @@ export default function CourseBuilder() {
               <span className="cb-status-dot" /> {isLive ? "Published" : "Draft"}
             </button>
           )}
+          <button className="cb-btn" onClick={() => addModule.mutate(`Module ${modules.length + 1}`)} disabled={addModule.isPending || !course}>
+            <FolderPlus size={15} /> <span className="cb-label">Add module</span>
+          </button>
           <a className="cb-btn cb-hide-sm" href={`/learn/${slug}`} target="_blank" rel="noopener noreferrer">
             <Eye size={15} /> <span className="cb-label">Preview</span>
           </a>
@@ -235,6 +238,9 @@ export default function CourseBuilder() {
                 <p>Use "Add topic" under a module in the outline, then build the topic's content: drop in HTML files, videos, PDFs and quizzes.</p>
                 <button className="cb-btn cb-btn-primary" onClick={() => addLesson.mutate({ moduleId: modules[0].id, title: "Topic 1" })}>
                   Add a topic to "{modules[0].title}"
+                </button>
+                <button className="cb-btn" style={{ marginLeft: 8 }} onClick={() => addModule.mutate(`Module ${modules.length + 1}`)}>
+                  <FolderPlus size={15} /> Add another module
                 </button>
               </>
             )}
