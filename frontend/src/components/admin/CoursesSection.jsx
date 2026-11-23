@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, BookOpen, Eye, ExternalLink, Trash2, BarChart2 } from "lucide-react";
+import { Plus, Edit2, BookOpen, Eye, ExternalLink, Trash2, BarChart2, Copy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { coursesAPI, adminAPI } from "../../api";
+import { coursesAPI, adminAPI, builderAPI } from "../../api";
 import CourseCreateForm from "./coursesSection/CourseCreateForm";
 
-function CourseListItem({ course, onManage, onDelete }) {
+function CourseListItem({ course, onManage, onDelete, onCopy, copying }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem", background: "var(--clr-surface)", borderRadius: "var(--radius-sm)", border: "1px solid var(--clr-border)" }}>
       <BookOpen size={16} color="var(--clr-primary)" />
       <div style={{ flex: 1 }}>
         <p style={{ fontWeight: 600, marginBottom: "0.125rem" }}>{course.title}</p>
         <p className="text-muted" style={{ fontSize: "0.75rem" }}>
-          {course.lesson_count} lessons · {course.is_free ? "Free" : `BDT ${course.price}`}
+          {course.lesson_count} topics · {course.is_free ? "Free" : `BDT ${course.price}`}
         </p>
       </div>
       <span className={`badge ${course.status === "published" ? "badge-success" : "badge-warning"}`}>
@@ -44,6 +44,9 @@ function CourseListItem({ course, onManage, onDelete }) {
         <button className="btn btn-primary btn-sm" onClick={onManage}>
           <Edit2 size={13} /> Build content
         </button>
+        <button className="btn btn-outline btn-sm" onClick={onCopy} disabled={copying} title="Make a copy of this course">
+          <Copy size={13} /> {copying ? "Copying…" : "Copy"}
+        </button>
         <button
           className="btn btn-danger btn-sm"
           style={{ padding: "0.25rem 0.5rem" }}
@@ -66,6 +69,16 @@ export default function CoursesSection() {
   const delCourse = useMutation({
     mutationFn: (slug) => adminAPI.deleteCourse(slug),
     onSuccess: () => qc.invalidateQueries(["admin-courses"]),
+  });
+
+  const copyCourse = useMutation({
+    mutationFn: ({ slug, title }) => builderAPI.duplicate(slug, title),
+    onSuccess: (r) => {
+      qc.invalidateQueries(["admin-courses"]);
+      alert(`Copied: ${r.data.modules} modules, ${r.data.topics} topics. The copy is a draft — opening it now.`);
+      openBuilder(r.data.slug);
+    },
+    onError: (e) => alert(e.response?.data?.detail || "Couldn't copy the course."),
   });
 
   const { data, isLoading } = useQuery({
@@ -103,6 +116,11 @@ export default function CoursesSection() {
             key={c.id}
             course={c}
             onManage={() => openBuilder(c.slug)}
+            copying={copyCourse.isPending && copyCourse.variables?.slug === c.slug}
+            onCopy={() => {
+              const title = prompt("Name for the new course:", `${c.title} (copy)`);
+              if (title && title.trim()) copyCourse.mutate({ slug: c.slug, title: title.trim() });
+            }}
             onDelete={() => {
               if (confirm(`Delete "${c.title}"? This cannot be undone.`)) {
                 delCourse.mutate(c.slug);

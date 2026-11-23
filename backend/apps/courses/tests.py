@@ -149,3 +149,47 @@ class StaffEnrollmentTests(TestCase):
         r = sc.post('/api/courses/enrollments/manage/', {'student': str(self.student.id), 'courses': [str(self.p.id)]}, format='json')
         self.assertEqual(r.status_code, 403)
         self.assertEqual(sc.get(f'/api/courses/enrollments/manage/?student={self.student.id}').status_code, 403)
+
+
+class DuplicateCourseTests(TestCase):
+    def setUp(self):
+        from apps.assessments.models import Quiz, Question
+        self.admin = CustomUser.objects.create_user(email='a@x.com', username='a', password='pw', role='admin')
+        self.student = CustomUser.objects.create_user(email='s@x.com', username='s', password='pw', role='student')
+        self.course = Course.objects.create(title='Physics', slug='physics', instructor=self.admin, status='published', price=2500)
+        m = Module.objects.create(course=self.course, title='Forces', order=1)
+        self.a = Lesson.objects.create(module=m, title='Intro', order=1, is_published=True)
+        self.b = Lesson.objects.create(module=m, title='Newton', order=2, is_published=True)
+        ContentBlock.objects.create(lesson=self.a, block_type='html', html_content='<p>hi</p>')
+        q = Quiz.objects.create(lesson=self.a, title='Q1')
+        Question.objects.create(quiz=q, question_type='mcq', prompt='?', content={'options': []})
+        DrippingRule.objects.create(lesson=self.b, criteria_type='completion', required_lesson=self.a)
+        from apps.courses.models import Enrollment
+        Enrollment.objects.create(student=self.student, course=self.course)
+        self.client = APIClient(); self.client.force_authenticate(self.admin)
+
+    def test_copy_is_independent_draft_without_students(self):
+        r = self.client.post('/api/courses/physics/duplicate/', {'title': 'Physics 2027'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        new = Course.objects.get(slug=r.json()['slug'])
+        self.assertEqual((new.status, new.title, new.price), ('draft', 'Physics 2027', 2500))
+        self.assertEqual(new.enrollments.count(), 0)
+        lessons = list(Lesson.objects.filter(module__course=new).order_by('order'))
+        self.assertEqual([l.title for l in lessons], ['Intro', 'Newton'])
+        self.assertNotEqual(lessons[0].id, self.a.id)
+        self.assertEqual(lessons[0].content_blocks.count(), 1)
+        self.assertEqual(lessons[0].quizzes.first().questions.count(), 1)
+        # unlock rule points at the COPIED topic, not the original
+        self.assertEqual(lessons[1].drip_rule.required_lesson_id, lessons[0].id)
+        # original untouched
+        self.assertEqual(Lesson.objects.filter(module__course=self.course).count(), 2)
+
+    def test_default_title_and_unique_slug(self):
+        s1 = self.client.post('/api/courses/physics/duplicate/', {}, format='json').json()
+        s2 = self.client.post('/api/courses/physics/duplicate/', {}, format='json').json()
+        self.assertEqual(s1['title'], 'Physics (copy)')
+        self.assertNotEqual(s1['slug'], s2['slug'])
+
+    def test_students_cannot_copy(self):
+        c = APIClient(); c.force_authenticate(self.student)
+        self.assertEqual(c.post('/api/courses/physics/duplicate/', {}, format='json').status_code, 403)

@@ -161,3 +161,84 @@ class CoursePublishLessonsView(APIView):
             lessons = lessons.filter(module_id=module_id)
         count = lessons.update(is_published=True)
         return Response({'published': count})
+
+
+class CourseDuplicateView(APIView):
+    """Copy a whole course (modules, topics, content, quizzes, unlock rules)
+    into a new draft course. Students, enrollments, progress and quiz
+    results are never copied.
+
+    Body (optional): {"title": "New course name"}
+    """
+    permission_classes = [IsInstructorOrAdmin]
+
+    @transaction.atomic
+    def post(self, request, slug):
+        from django.utils.text import slugify
+        from apps.assessments.models import Quiz, Question
+        from apps.content.models import ContentBlock
+        from apps.dripping.models import DrippingRule
+
+        src = _course_for_editor(request, slug)
+        title = (request.data.get('title') or '').strip() or f'{src.title} (copy)'
+        title = title[:255]
+
+        base = slugify(title)[:240] or 'course'
+        new_slug, n = base, 2
+        while Course.objects.filter(slug=new_slug).exists():
+            new_slug, n = f'{base}-{n}', n + 1
+
+        course = Course.objects.create(
+            title=title, slug=new_slug, description=src.description,
+            short_description=src.short_description, thumbnail=src.thumbnail or None,
+            instructor=src.instructor, price=src.price, is_free=src.is_free,
+            status='draft', requirements=src.requirements, outcomes=src.outcomes,
+            language=src.language,
+        )
+
+        lesson_map, quiz_map = {}, {}
+        for m in src.modules.all():
+            nm = Module.objects.create(course=course, title=m.title, description=m.description, order=m.order)
+            for l in m.lessons.all():
+                nl = Lesson.objects.create(
+                    module=nm, title=l.title, order=l.order, is_published=l.is_published,
+                    is_preview=l.is_preview, estimated_duration_mins=l.estimated_duration_mins,
+                )
+                lesson_map[l.id] = nl
+                for b in l.content_blocks.all():
+                    nb = ContentBlock(
+                        lesson=nl, block_type=b.block_type, order=b.order, title=b.title,
+                        html_content=b.html_content, is_fullscreen=b.is_fullscreen,
+                        h5p_embed_url=b.h5p_embed_url, moodle_resource_id=b.moodle_resource_id,
+                        video_url=b.video_url,
+                    )
+                    if b.file:
+                        nb.file.name = b.file.name  # same stored file, no second copy on disk
+                    nb.save()  # H5P packages are unpacked again for the new block
+                for q in l.quizzes.all():
+                    nq = Quiz.objects.create(
+                        lesson=nl, title=q.title, description=q.description,
+                        time_limit_mins=q.time_limit_mins, passing_score=q.passing_score,
+                        max_attempts=q.max_attempts, is_active=q.is_active,
+                    )
+                    quiz_map[q.id] = nq
+                    Question.objects.bulk_create([
+                        Question(quiz=nq, question_type=x.question_type, prompt=x.prompt,
+                                 content=x.content, max_marks=x.max_marks, order=x.order,
+                                 is_active=x.is_active)
+                        for x in q.questions.all()
+                    ])
+
+        for rule in DrippingRule.objects.filter(lesson__in=lesson_map.keys()):
+            DrippingRule.objects.create(
+                lesson=lesson_map[rule.lesson_id], criteria_type=rule.criteria_type,
+                unlock_after_days=rule.unlock_after_days,
+                required_lesson=lesson_map.get(rule.required_lesson_id),
+                required_score=rule.required_score,
+                required_quiz=quiz_map.get(rule.required_quiz_id),
+                is_globally_locked=rule.is_globally_locked,
+            )
+
+        return Response({'slug': course.slug, 'title': course.title,
+                         'modules': src.modules.count(), 'topics': len(lesson_map)},
+                        status=status.HTTP_201_CREATED)

@@ -84,6 +84,7 @@ export const adminAPI = {
 export const builderAPI = {
   outline: (slug) => api.get(`/courses/${slug}/outline/`),
   reorder: (slug, modules) => api.post(`/courses/${slug}/reorder/`, { modules }),
+  duplicate: (slug, title) => api.post(`/courses/${slug}/duplicate/`, title ? { title } : {}),
   publishLessons: (slug, module) => api.post(`/courses/${slug}/publish-lessons/`, module ? { module } : {}),
   reorderBlocks: (lessonId, blocks) => api.post(`/content/lessons/${lessonId}/blocks/reorder/`, { blocks }),
   // Multipart upload with progress callback (0–100)
